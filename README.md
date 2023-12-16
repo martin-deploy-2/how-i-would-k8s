@@ -2,6 +2,8 @@
 
 In this document, I will do my best to set down my shallow and imprecise opinions on the matter of deploying applications in Kubernetes. I will start from scratch, by taking the example of imaginary HTTP webservers, and detail the full structure of the Git repositories and the folder trees inside them. I will make my best to take into account source code, containerization, deployment, the branching models, release management, versioning of deliverables, what is deployed where, finding what happened when something breaks, applications with sub-components, applications without sources, mono-repos and how it balances with pipeline complexity, scaling to more clusters, and more applications.
 
+This document is licensed under [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/).
+
 
 
 ## Applications
@@ -54,7 +56,7 @@ Things to consider:
 
 The job of the pipeline in each app repo is to produce deployable deliverables. Namely, it should build the app into a `*.dll`, `*.jar` or whatever artifact applies, run the unit tests, build the container image from the built artifact and publish it to a container registry, update the Helm chart's default `values.yaml` to use this container image, package it, and push the resulting `*.tgz` to a Helm repository.
 
-This whole application-side sub-process is entirely self-contained, and doesn't require knowledge of where the applications will be deployed. It also heavily relies on you, or an automated process, being disciplined enough to version the shit out of everything, from application code, to container images, to packaged charts, and cascade the version number increments according to your chosen versioning scheme!
+This whole application-side sub-process is entirely self-contained, and doesn't require knowledge of where the applications will be deployed. It also heavily relies on you, or an automated process, being disciplined enough to version the 💩 out of everything, from application code, to container images, to packaged charts, and cascade the version number increments according to your chosen versioning scheme!
 
 
 
@@ -135,7 +137,7 @@ In this section, I will detail the process of making changes, from app code, con
 
 1. Whichever Jenkins, ADO or other pipeline executor gets notified of the new commit(s) pushed to `main`. The pipeline rebuilds not only the `*.dll`, but also the container image and the chart! This covers changes to the app code, the `Containerfile` code, and the chart code.
 
-   The pipeline can update and cascade the versions of these aforementioned artifacts automatically, by inspecting the commit messages, or use static values provided from the configuration files of the project. The pipeline always publishes new versions of the container image and packaged chart, remember your oath to version the shit out of everything!
+   The pipeline can update and cascade the versions of these aforementioned artifacts automatically, by inspecting the commit messages, or use static values provided from the configuration files of the project. The pipeline always publishes new versions of the container image and packaged chart, remember your oath to version the 💩 out of everything!
 
 2. Another pipeline gets notified of the new chart available in the Helm repository. It checks out the Git repo of the Rolling cluster, and updates the `.spec.source.targetRevision` of the appropriate application accordingly.
 
@@ -295,7 +297,7 @@ Clusters
 
 2. There is no point having the Argo Apps defined and deployed in the remote clusters. There is no Argo CD instance there anymore, those resources will just pile up and take dust.
 
-The benefit of having one Argo CD instance per cluster is that each cluster becomes self-operative, and, most importantly, can be updated independently without the risk of fucking up any other cluster of potential higher business value. Argo CD is the GitOps agent, but, thought its Argo App definition, is also just another application.
+The benefit of having one Argo CD instance per cluster is that each cluster becomes self-operative, and, most importantly, can be updated independently without the risk of 🍆 up any other cluster of potential higher business value. Argo CD is the GitOps agent, but, thought its Argo App definition, is also just another application.
 
 The benefit of a single Argo CD instance is having a single counter to manage and observe everything. A single URL, a single UI, all the tiles at hand's reach. However, the deployment process presented in this document does not directly action the GitOps agent, relying on its passive state synchronization capabilities instead. If you desire a single UI to observe all your applications, it might be a better option to wait the implementation of the feature request for the Argo CD Server to support remote instances, and deploy Argo CD Core in each cluster.
 
@@ -938,8 +940,6 @@ If you want to reduce duplication in the pipeline code, you may want to refactor
 
 <!--
 todo
-  replace swears with 💩 and 🍆
-  license
   ubiquitous language => glossary
     app code
     app
@@ -959,8 +959,10 @@ todo
     helm repository
     containers mono repo
     charts mono repo
+    umbrella chart
   spelling
   phrasing consolidation
+  links!
   more sections
     What is deployed where
     Something broke, find what happened
