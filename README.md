@@ -10,7 +10,7 @@ This document is licensed under [CC BY-NC-SA 4.0](http://creativecommons.org/lic
 
 To start with, I will make up applications: Wombat, Emu, Kangaroo and Platypus. All of them are imaginary, and I imagine them as webapps, that is: programs that spend their lives listening to a network socket for connections, and responding to HTTP(S) requests by HTTP(S) responses.
 
-For each application, I will create one Git repository, I will expand on mono-repos later on. Each app repo contains the source code of the application, a Dockerfile for building container images, a Helm chart to deploy the application on the Kubernetes clusters I will make up later, and a Jenkinsfile for automation. All applications here are the same, I will show the folder tree for just one repo in order to keep things shorter.
+For each application, I will create one Git repository, [I will expand on mono-repos later on](#containers-and-charts-mono-repos). Each app repo contains the source code of the application, a [Dockerfile](https://docs.docker.com/engine/reference/builder/) for building container images, a [Helm chart](https://helm.sh/) to deploy the application [on the Kubernetes clusters I will make up later](#clusters), and a Jenkinsfile for automation. All applications here are the same, I will show the folder tree for just one repo in order to keep things shorter.
 
 ```plaintext
 Applications
@@ -38,25 +38,25 @@ Things to consider:
 
 1. Which language(s), librariy(es) and framework(s) you use for developping the applications don't matter at all. The containerization and deployment will differ from one tech stack to another, by that I mean the base image will surely differ, each framework will have expectations regarding the location of the its config files on the file system and environment variables, and will have different capabilities for hot-reloading the configuration without restarting if needs be.
 
-2. Which tool(s) you use to build your container images, be it Docker, Podman, NerdCTL, Kaniko or anything else, don't matter much either.
+2. Which tool(s) you use to build your container images, be it [Docker](https://docs.docker.com/get-started/overview/), [Podman](https://docs.podman.io/en/latest/), [NerdCTL](https://github.com/containerd/nerdctl), [Kaniko](https://github.com/GoogleContainerTools/kaniko) or anything else, don't matter much either.
 
-3. Helm VS Kustomize? Here it goes again: this matters as much as a bar fight matters to the world.
+3. [Helm VS Kustomize](https://www.youtube.com/watch?v=ZMFYSm0ldQ0&themeRefresh=1)? Here it goes again: this matters as much as a bar fight matters to the world.
 
-   * Raw YAML has the benefit of being the simplest, but will lack refactoring capabilities that go beyond YAML Anchors. If your copy-pasting activities are taking an ever larger part of your time table, you should consider upgrading. One red flag that signals the limit of pure YAML is having one big YAML file for all the resources, and abusing YAML Anchors to refactor prevent repetitions. Another potential red flag is using a separate tool to statically generate the YAML.
+   * Raw YAML has the benefit of being the simplest, but will lack refactoring capabilities that go beyond [YAML](https://www.educative.io/blog/advanced-yaml-syntax-cheatsheet#anchors) [Anchors](https://medium.com/@kinghuang/docker-compose-anchors-aliases-extensions-a1e4105d70bd). If your copy-pasting activities are taking an ever larger part of your time table, you should consider upgrading. One red flag that signals the limit of pure YAML is having one big YAML file for all the resources, and abusing YAML Anchors to refactor prevent repetitions. Another potential red flag is using a separate tool to statically generate the YAML.
 
-   * Kustomize works by defining base Kubernetes resources on one side, and overlays for those same resources on the other side. At deploy-time, the overlays form layers that are merged into each other in the configured order. Kustomize works well for this use case, but lacks the ability to loop over a given list and generate N resources from configuration, or is quite verbose when it comes these advanced modifications. I haven't used it much.
+   * [Kustomize](https://kubectl.docs.kubernetes.io/guides/introduction/kustomize/) works by defining base Kubernetes resources on one side, and overlays for those same resources on the other side. At deploy-time, the overlays form layers that are merged into each other in the configured order. [Kustomize works well for this use case](https://www.densify.com/kubernetes-tools/kustomize/), but lacks the ability to loop over a given list and generate N resources from configuration, or is quite verbose when it comes these advanced modifications. I haven't used it much.
 
-   * Helm is a template engine. It's like PHP, old PHP without OOP, but you have to open and close the tags on each line, and the indentation of the output matters. On top of that, the user-defined functions, called Named Templates or Partials, take only one argument and can only return strings. As a software developer by training, the template engine nature of Helm feels the most natural, despite its flaws. Helm shines where Kustomize tarnishes, also lack the overlaying bit of Kustomize: it is impossible to modify a resource once it's been output from a template file. The solution is to make your template ultra flexile and anticipate by having as many configurable blanks to fill, which leads to the well known Template Soup red flag. A Helm chart is only as powerful as its templates are flexible.
+   * [Helm is a template engine](https://helm.sh/docs/chart_template_guide/data_types/). It's like PHP, old PHP without OOP, but you have to open and close the tags on each line, and the indentation of the output matters. On top of that, the user-defined functions, called [Named Templates or Partials](https://helm.sh/docs/chart_template_guide/named_templates/), take only one argument and [can only return strings](https://itnext.io/use-named-templates-like-functions-in-helm-charts-641fbcec38da#67d1). As a software developer by training, the template engine nature of Helm feels the most natural, despite its flaws. Helm shines where Kustomize flickers, lacking the overlaying bit of Kustomize: it is impossible to modify a resource once it's been output from a template file. The solution is to make your template ultra flexile and anticipate by having as many configurable blanks to fill, which leads to the well known [Template Soup](https://news.ycombinator.com/item?id=32624138#:~:text=Without%20you%20adding%20dozens%20of%20lines%20of%20values.yaml%20and%20golang%20template%20soup%20to%20a%20helm%20chart%20to%20allow%20every%20possible%20configuration%20a%20user%20might%20want%20(and%20never%20quite%20the%20same%20way%20in%20two%20different%20helm%20charts%20from%202%20different%20people).) red flag. A Helm chart is only as powerful as its templates are flexible.
 
-   * Carvel, ytt, kpt, Timoni, CUE... At this point, I would advise throwing a fully fledged programming language at it and making your own tool. Use Typescript with Bun, get built-in support from VS Code, containerize it into an Argo CD Content Management Plugin, use Modules and `export function` to return the Kubernetes resources as objects, gather them into an array, use `for` loops to "overlay" the non-configurable values, serialize to JSON or YAML.
+   * [Carvel ytt](https://www.youtube.com/watch?v=DLnXkH2keNg), [kpt](https://www.youtube.com/watch?v=Wavigyq7NdQ), [Timoni, CUE](https://www.youtube.com/watch?v=bbE1BFCs548)... At this point, I would advise throwing a fully fledged programming language at it and making your own tool. Use [Typescript](https://www.typescriptlang.org/docs/handbook/typescript-from-scratch.html) with [Bun](https://bun.sh/docs), get built-in support from VS Code, containerize it into an [Argo CD Content Management Plugin](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/config-management-plugins/), use JS Modules and `export function` to return the Kubernetes resources as objects, gather them into an array, use `for` loops to "overlay" the non-configurable values, serialize to JSON or YAML.
 
    The important thing here is that the chart only has the default `values.yaml` file. It does not define the values for each cluster or environment the application will be deployed in, as those will be provided by a different source.
 
-4. Argo Workflows, Azure DevOps Pipelines, Jenkins or any other pipeline executor(s) that can trigger on change of a Git repository or artifact hub will do, it doesn't matter.
+4. [Argo Workflows](https://argoproj.github.io/argo-workflows/), [Azure DevOps Pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines/get-started/what-is-azure-pipelines?view=azure-devops), [Jenkins](https://www.jenkins.io/doc/) or any other pipeline executor(s) that can trigger on change of a Git repository or artifact hub will do, it doesn't matter.
 
-The job of the pipeline in each app repo is to produce deployable deliverables. Namely, it should build the app into a `*.dll`, `*.jar` or whatever artifact applies, run the unit tests, build the container image from the built artifact and publish it to a container registry, update the Helm chart's default `values.yaml` to use this container image, package it, and push the resulting `*.tgz` to a Helm repository.
+The job of the pipeline in each app repo is to produce deployable deliverables. Namely, it should build the app into a `*.dll`, `*.jar` or whatever artifact applies, run the unit tests, build the container image from the built artifact and publish it to a container registry, update the Helm chart's default `values.yaml` to use this container image, [package](https://helm.sh/docs/helm/helm_package/) it, and push the resulting `*.tgz` to a Helm repository.
 
-This whole application-side sub-process is entirely self-contained, and doesn't require knowledge of where the applications will be deployed. It also heavily relies on you, or an automated process, being disciplined enough to version the 💩 out of everything, from application code, to container images, to packaged charts, and cascade the version number increments according to your chosen versioning scheme!
+This whole application-side sub-process is entirely self-contained, and doesn't require knowledge of where the applications will be deployed. It also heavily relies on you, or an automated process, being disciplined enough to [version the 💩 out of everything](https://semver.org/spec/v2.0.0.html), from application code, to container images, to packaged charts, and cascade the version number increments according to your chosen versioning scheme!
 
 
 
@@ -64,7 +64,7 @@ This whole application-side sub-process is entirely self-contained, and doesn't 
 
 To deploy my imaginary applications, I will make up Kubernetes clusters: Production, Staging and Rolling. Production is obviously live and available from the Internets, while Staging and Rolling are internal. The difference is that you would deploy to Staging to rehearse before deploying to Production, and you would deploy to Rolling much more often, possibly on an automated basis.
 
-For each cluster, I will create one Git repository, I will expand on mono-repos later on. Each cluster repo contains the list of applications to be deployed in the corresponding live cluster, as well as any additional Kubernetes resources, all organized by namespaces and resource types. All clusters here are the same, I will show the folder tree for just one repo in order to keep things shorter.
+For each cluster, I will create one Git repository, [I will expand on mono-repos later on](#clusters-mono-repo). Each cluster repo contains the list of applications to be deployed in the corresponding live cluster, as well as any additional Kubernetes resources, all organized by namespaces and resource types. All clusters here are the same, I will show the folder tree for just one repo in order to keep things shorter.
 
 ```plaintext
 Applications
@@ -99,11 +99,11 @@ Clusters
 
 Things to consider:
 
-1. Which GitOps agent you install doesn't matter. OCP ACM, Argo CD and Flux CD seem well established in the industry, any tool that works on a K8S Custom Resource to determine what to deploy where, will do.
+1. Which GitOps agent you install doesn't matter. [OCP ACM](https://www.redhat.com/en/technologies/management/advanced-cluster-management), [Argo CD](https://argo-cd.readthedocs.io/en/stable/) and [Flux CD](https://fluxcd.io/flux/) seem well established in the industry, any tool that works on a K8S Custom Resource to determine what to deploy where, will do.
 
 2. Additional resources include anything that isn't defined in the application Helm charts, such as Secrets, Container Runtime configuration, some people choose not to make Ingresses part of their charts because they draw a line between applications and routing, some do the same for network policies, and the extremists extract Config Maps out of their charts! What matters is minimizing the fear and strain of changes, and keeping together the resources that are tightly coupled, not the means put in place to make this happen.
 
-To bootstrap such a cluster, an operator would first install an Argo CD instance on it, this can be done by templating the official Helm chart, then they would apply the `*-cluster.yaml` App of Apps.
+To bootstrap such a cluster, an operator would first install an Argo CD instance on it, this can be done by templating the official Helm chart, then they would apply the `*-cluster.yaml` [App of Apps](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/cluster-bootstrapping/#app-of-apps-pattern).
 
 This automates everything else, as the App of Apps references the `namespaces` folder of its own repository, including itself, the `argo-cd.yaml` Argo App, which makes Argo CD deploy and maintain itself, the other Argo Apps, each of which references corresponding business application, and all the other ad-hoc Kubernetes resources defined there!
 
@@ -133,13 +133,13 @@ This automates everything else, as the App of Apps references the `namespaces` f
 
 ## Deploying
 
-In this section, I will detail the process of making changes, from app code, container image, deployment chart or configuration, to actual deployment in the clusters. I will consider that a change starts from pushing a commit to the `main` branch, I will explore more sophisticated branching models later.
+In this section, I will detail the process of making changes, from app code, container image, deployment chart or configuration, to actual deployment in the clusters. I will consider that a change starts from pushing a commit to the `main` branch, I will explore [more sophisticated branching models later](#branching-models).
 
 1. Whichever Jenkins, ADO or other pipeline executor gets notified of the new commit(s) pushed to `main`. The pipeline rebuilds not only the `*.dll`, but also the container image and the chart! This covers changes to the app code, the `Containerfile` code, and the chart code.
 
-   The pipeline can update and cascade the versions of these aforementioned artifacts automatically, by inspecting the commit messages, or use static values provided from the configuration files of the project. The pipeline always publishes new versions of the container image and packaged chart, remember your oath to version the 💩 out of everything!
+   The pipeline can update and cascade the versions of these aforementioned artifacts automatically, [by inspecting the commit messages](https://medium.com/agoda-engineering/automating-versioning-and-releases-using-semantic-release-6ed355ede742), or use static values provided from the configuration files of the project. The pipeline always publishes new versions of the container image and packaged chart, remember your oath to version the 💩 out of everything!
 
-2. Another pipeline gets notified of the new chart available in the Helm repository. It checks out the Git repo of the Rolling cluster, and updates the `.spec.source.targetRevision` of the appropriate application accordingly.
+2. Another pipeline gets notified of the new chart available in the Helm repository. It checks out the Git repo of the Rolling cluster, and updates the `.spec.source.targetRevision` of the appropriate Argo application accordingly.
 
    This deployment pipeline is separate from the build pipeline that lives in the app repo. I can be defined in the cluster repo, or in an entirely separate repo:
 
@@ -159,7 +159,7 @@ Updating the deployed configuration takes a shorter path, since there is no need
 
 2. The GitOps agent installed in the cluster gets notified of the new commit(s) pushed to `main`, and synchronizes the desired state from Git to the cluster. The changes take effect immediately.
 
-Promoting a new version of an application to Staging and Production works the same way as in Rolling. The process can be automated, but I want a deploying to Production to be a conscious action for the sake of the example. In this case, it isn't a pipeline, but a human operator who updates the `.spec.source.targetRevision` of the appropriate application. The GitOps agent installed in the cluster will pick up the new commit(s) and do its usual magic.
+Promoting a new version of an application to Staging and Production works the same way as in Rolling. The process can be automated, but I want a deploying to Production to be a conscious action for the sake of the example. In this case, it isn't a pipeline, but a human operator who updates the `.spec.source.targetRevision` of the appropriate Argo application. The GitOps agent installed in the cluster will pick up the new commit(s) and do its usual magic.
 
 The strict versioning of everything was worth it: promoting a new version of an application from cluster to cluster is about updating a version number!
 
@@ -175,7 +175,7 @@ It is worth to consider that promotion doesn't apply to the application `*.dll`,
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-As glorious as it look, the deployment model I have presented relies heavily on the strict versioning of the application codes, container images, Helm charts. Humans are not disciplined, therefore this raises multiple problems, which in turn have easier or harder solutions:
+As glorious as it look, the deployment model I have presented relies heavily on the strict [versioning](https://en.wikipedia.org/wiki/Software_versioning#Schemes) of the application codes, container images, Helm charts. Humans are not disciplined, therefore this raises multiple problems, which in turn have easier or harder solutions:
 
 * It's easy to shoot yourself in the foot, and forget to update the version number of this or that component.
 * Where to define the version of each component in the first place?
@@ -188,7 +188,7 @@ Essentially, these boil down to 3 questions: where, when, and who?
 
 If humans are put in charge of updating and cascading the versions, they might forget tot do so, leading to multiple container images or charts having the same version.
 
-If the pipeline is in charge, it will probably end up inspecting commit messages to compute the appropriate way to increment the version numbers... The same commit messages that were poorly written by humans, leading to misleading version numbers being published.
+If the pipeline is in charge, it will probably end up [inspecting commit messages to compute the appropriate way to increment the version](https://medium.com/agoda-engineering/automating-versioning-and-releases-using-semantic-release-6ed355ede742) numbers... The same commit messages that were poorly written by humans, leading to misleading version numbers being published.
 
 One possible safeguard is to configure your artifact repository to deny publishing the same artifact with the same version. The pipeline will fail with a lot of pixels turning red, but the versioning scheme will be safe.
 
@@ -206,7 +206,7 @@ When actually building, the application build pipeline needs to know where to lo
 
 ### When
 
-I thought releasing a new version could be triggered by any push to the `main` branch of the application repo. If there are too many pushes to `main`, it should be possible restrain the releases to trigger only when a tagged commit is pushed to `main`, or only when commits are pushed to `release/*` branches.
+I thought releasing a new version could be triggered by any push to the `main` branch of the application repo. If there are too many pushes to `main`, it should be possible restrain the releases to trigger only when a tagged commit is pushed to `main`, or only when commits are pushed to `release/*` branches. Refer to the section about [branching models](#branching-models) for more details.
 
 
 
@@ -214,7 +214,7 @@ I thought releasing a new version could be triggered by any push to the `main` b
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-The structure I presented is agnostic to changes freezes, and the deployment process is not tightly coupled with the release cycle of any specific application. Which applications are deployed in which clusters is determined entirely by the `.spec.source` of the Argo Apps defined in each cluster. Deploying different application on different release cycles simple means updating different files at different moments, which shouldn't be so difficult.
+The structure I presented is agnostic to changes freezes, and the deployment process is not tightly coupled to the release cycle of any specific application. Which applications are deployed in which clusters is determined entirely by the `.spec.source` of the Argo Apps defined in each cluster. Deploying different application on different release cycles simple means updating different files at different moments, which shouldn't be so difficult.
 
 ```plaintext
 🦊 Production
@@ -234,7 +234,7 @@ The structure I presented is agnostic to changes freezes, and the deployment pro
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-Do I need nightly builds? No. The latest changes from the `main` branch of each application repo is already automatically built and deployed to the Rolling cluster, I don't need a nightly process to do the same thing again, this wouldn't bring anything.
+Do I need nightly builds? No. The latest changes from the `main` branch of each application repo is already automatically built and deployed to the Rolling cluster, I don't need a nightly process to do the same thing again, this wouldn't bring any benefit.
 
 Unless you make so many changes and release so many stable versions of so many applications that the Rolling cluster changes every 10 seconds, you don't need nightly builds. Even then, you are better off finding a solution to throttle your pipeline runs than having nightly builds.
 
@@ -244,7 +244,7 @@ Unless you make so many changes and release so many stable versions of so many a
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-I made the assumption that each cluster would have its own GitOps agent installed inside it, but some teams will prefer to use a separate Management cluster to host their GitOps agent, and make it deploy to the other, now remote, clusters. This is perfectly acceptable, but it requires moving a few files around.
+I made the assumption that each cluster would have its own GitOps agent installed inside it, but some teams will prefer to use a separate [Management](https://akuity.io/blog/argo-cd-architectures-explained/) [cluster](https://codefresh.io/blog/a-comprehensive-overview-of-argo-cd-architectures-2023/) to host their GitOps agent, and make it deploy to the other, now remote, clusters. This is perfectly acceptable, but it requires moving a few files around.
 
 ```diff
 Clusters
@@ -291,15 +291,15 @@ Clusters
         📄 *.yaml
 ```
 
-1. The management cluster has its own Git repository, which contains the Argo Apps deployed in itself, but also all other clusters, organized nicely with a sub-folder per cluster. In addition, the Argo Apps might need to be renamed to prevent conflicts between the same Argo Apps deployed in different clusters. By default, Argo CD observes its own namespace for Applications resources, but can be configured to look in other namespaces as well.
+1. The management cluster has its own Git repository, which contains the Argo Apps deployed in itself, but also all other clusters, organized nicely with a sub-folder per cluster. In addition, the Argo Apps might need to be renamed to prevent conflicts between the same Argo Apps deployed in different clusters. By default, Argo CD observes its own namespace for Applications resources, but [can be configured to look in other namespaces as well](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/app-any-namespace/).
 
-   The `.spec.destination.name` of each Argo App will need to be updated to target the appropriate cluster, otherwise the application will be deployed in the Management cluster!
+   The `.spec.destination.name` of each Argo App will need to be [updated to target the appropriate cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/declarative-setup/#clusters), otherwise the application will be deployed in the Management cluster!
 
 2. There is no point having the Argo Apps defined and deployed in the remote clusters. There is no Argo CD instance there anymore, those resources will just pile up and take dust.
 
 The benefit of having one Argo CD instance per cluster is that each cluster becomes self-operative, and, most importantly, can be updated independently without the risk of 🍆 up any other cluster of potential higher business value. Argo CD is the GitOps agent, but, thought its Argo App definition, is also just another application.
 
-The benefit of a single Argo CD instance is having a single counter to manage and observe everything. A single URL, a single UI, all the tiles at hand's reach. However, the deployment process presented in this document does not directly action the GitOps agent, relying on its passive state synchronization capabilities instead. If you desire a single UI to observe all your applications, it might be a better option to wait the implementation of the feature request for the Argo CD Server to support remote instances, and deploy Argo CD Core in each cluster.
+The benefit of a single Argo CD instance is having a single counter to manage and observe everything. A single URL, a single UI, all the tiles at hand's reach. However, the deployment process presented in this document does not directly action the GitOps agent, relying on its passive state synchronization capabilities instead. If you desire a single UI to observe all your applications, it might be a better option to [wait the implementation of the feature request for the Argo CD Server to support remote instances](https://github.com/argoproj/argo-cd/issues/11498), and deploy [Argo CD Core in each cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/core/).
 
 
 
@@ -315,7 +315,7 @@ Depending on how much external an application is, there are always ways.
 
 * If the developers publish a container image, your pipleline can be triggered by the events of their container registry, and package the Helm chart normally. If you don't like the stock version of a container image, you can make your own image using the stock image as a base. In this case, a human can consciously update the base version, or this task can be left to the pipeline.
 
-* If the developers publish a Helm chart, you can point the Argo Applications to their Helm repository directly, this is what I am doing for Argo CD itself, or extend the stock chart by wrapping it an Umbrella Chart. Similar to the container image, either a human or an automated pipeline can update the version of the dependency chart.
+* If the developers publish a Helm chart, you can point the Argo Applications to their Helm repository directly, this is what I've been doing for Argo CD itself, or extend the stock chart by wrapping it an Umbrella Chart. Similar to the container image, either a human or an automated pipeline can update the version of the dependency chart.
 
 Using the container base image and the chart dependencies, you can end up with two pairs of contaimer image and chart for one application.
 
@@ -338,7 +338,7 @@ In this section, I will explain the details of the Git branching models I would 
 
 ### For Applications
 
-Real men commit on the `main` branch directly. This is virile and removes the need for a branching model and the associated headaches. The downside of this non-model appears when one developer gets stuck on a feature: they get stuck on `main`, there is no build anymore, nada.
+[Real [men] commit on the `main` branch](https://www.youtube.com/watch?v=hL1OZfgoZGk) directly. This is virile and removes the need for a branching model and the associated headaches. The downside of this non-model appears when one developer gets stuck on a feature: they get stuck on `main`, there is no build anymore, they stick everybody else with them.
 
 The conservative rest of the population will appreciate the ability to buffer changes on `feature/*` branches before merging to `main`.
 
@@ -924,7 +924,7 @@ In this section, I will weigh the pros and cons of merging all the `Containers` 
   🔧 Jenkinsfile
 ```
 
-Splitting the Git repositories by layers instead of by silos makes a big difference to the pipelines. If the pipeline of each application repo was building a single container image and chart unconditionally, it is no longer acceptable to rebuild all the images on the slightest change. This adds complexity to the mono pipelines in order to compute which container images and charts have to be rebuilt. Refactoring the pipeline with a loop makes it more rigid, but reduces duplication to the point that it is possible to add more container images and charts with zero pipeline code maintenance cost! This also means that cloning the mono repo will be slower as new applications pile up.
+Splitting the Git repositories by layers instead of by silos makes a big difference to the pipelines. If the pipeline of each application repo was building a single container image and chart unconditionally, it is no longer acceptable to rebuild all the images on the slightest change. This adds complexity to the mono pipelines in order to compute which container images and charts have to be rebuilt. Refactoring the pipeline with a loop makes it more rigid, but reduces duplication to the point that it is possible to add more container images and charts with zero pipeline code maintenance cost! This also means that cloning the mono repo on each pipeline run will be slower as new applications pile up.
 
 Having all container manifests or charts in a single repo makes it easier to change multiple of them in one go. The branching model is also impacted: you have to catter for the fact that the branches now cover all the container images or charts. In practice, it feels wrong to separate bricks that are so tightly coupled. The majority of changes will span a single chart, or a container image and its deploying chart. You will end up making changes to 2 branches in 2 repositories.
 
@@ -944,6 +944,7 @@ todo
     app code
     app
     argo app
+    gitops agent
     container
     container image
     containerfile
