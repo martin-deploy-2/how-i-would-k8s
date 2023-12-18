@@ -977,8 +977,43 @@ Alternatively, they can reference independent values files from their `.spec.sou
 
 
 
+## Glossary
 
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
+Having a [ubiquitous language](https://en.wikipedia.org/wiki/Domain-driven_design#Overview) is a prerequisite for everyone to understand each other. It allows to associate specific terms to specific meanings, and prevents misunderstandings based on periphrases or polysemous words. Application, repository and cluster are perfect example of ambiguous vocabulary.
+
+In this section, I will list a couple a terms that I think might bring confusion. I will do my best to use them appropriately in the rest of this document.
+
+* In this document, an `App[lication]` is an HTTP webserver: it listens the HTTP(S) requests and responds to them.
+
+* Applications are defined by their `App[lication] [Source] Code`, written in any programming language, using any libraries and frameworks.
+
+* An `{Artifact|[Application] Binary}` is the product of compiling the Source Code of an Application. Typical examples are the `*.dll` of .NET, or the `*.{jar|war}` of Java.
+
+* Artifacts are pushed to an `Artifact {Repository|Registry}`, which stores them in an organized fashion. Examples are [NuGet.org](https://www.nuget.org/), [Maven Central](https://central.sonatype.com/), [NPM](https://www.npmjs.com/), or [JFrog Artifactory](https://jfrog.com/artifactory/).
+
+* The Application Source Code is stored and versioned in an `Application [Git] Repository`.
+
+* If a process is a running instance of a program, then a `Container` is a running instance of an Image.
+
+* A `{Container|Docker}file` is the source code for building a `[Container] Image`.
+
+* Container Images are pushed to a `Container Registry`, which stores them in an organized fashion. Examples are the [Docker Hub](https://hub.docker.com/), or the [GitHub Container Registry](https://github.blog/2020-09-01-introducing-github-container-registry/).
+
+* A `[Application] {Deployment Package|[Deployment] [Helm] Chart}` contains, or can be used to generate, all the Kubernetes resources necessary to deploy a containerized Application in a Kubernetes cluster.
+
+* An `Umbrella [Helm] Chart` is a hollow shell merely referencing other Application Helm Charts. Such a meta-package helps keeping specific versions of other Application Charts together.
+
+* A `Packaged [Helm] Chart` is the product of packaging the templates and metadata of a Helm Chart into a portable `*.tgz` archive.
+
+* Packaged Helm Charts are pushed to a `Helm Repository`, which stores them in an organized fashion. An example is the [Artifact Hub] (https://artifacthub.io/).
+
+* A `GitOps Agent` is a special containerized Application running inside a Kubernetes cluster. It observes a set of sources and automatically synchronizes the Kubernetes resources of the cluster to match the desired state defined in those sources. Examples are [Argo CD](https://argo-cd.readthedocs.io/en/stable/), or [Flux CD](https://fluxcd.io/flux/).
+
+* An `Argo [CD] App[lication]` is a Kubernetes custom resource that defines what sources a GitOps Agent should use to deploy an Application in its Kubernetes cluster. Another example is [the Flux CD's HelmRelease](https://fluxcd.io/flux/guides/helmreleases/#define-a-helm-release).
+
+* A `Cluster [Git] Repository` stores and versions the resources to be deployed in the cluster, serving as a source for Argo Applications.
 
 
 
@@ -988,27 +1023,6 @@ Alternatively, they can reference independent values files from their `.spec.sou
 
 <!--
 todo
-  ubiquitous language => glossary
-    app code
-    app
-    argo app
-    gitops agent
-    container
-    container image
-    containerfile
-    deployment package/chart
-    pipeline executor
-    application repository
-    cluster repository
-    artifact
-    build
-    publish
-    push
-    container registry
-    helm repository
-    containers mono repo
-    charts mono repo
-    umbrella chart
   spelling
   phrasing consolidation
   links!
