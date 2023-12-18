@@ -932,7 +932,11 @@ If you want to reduce duplication in the pipeline code, you may want to refactor
 
 
 
+## Scaling To More Applications
 
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Adding more applications to the infrastructure consists in adding a new application repository, containing the sources, containerfiles, Helm charts and build pipeline. To deploy the new application to any cluster, add a new Argo app manifest to the appropriate cluster(s).
 
 
 
@@ -973,7 +977,6 @@ todo
       Production 2
       Refactor SCCs
       Refactor Apps
-    Scaling to more applications
     where are the charts values
 
 -->
