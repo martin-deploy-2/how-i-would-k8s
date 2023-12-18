@@ -940,6 +940,50 @@ Adding more applications to the infrastructure consists in adding a new applicat
 
 
 
+## Where Are The Charts Values?
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+It is usual to see Helm charts for a given application containing not only the default `values.yaml` files, but also a plethora of values files for each of the clusters the application is deployed to. To me, this violates the principle that the helm chart is an environment-agnostic deliverable that could be used to deploy the application anywhere. This is why I haven't created other values files inthe applications repositories.
+
+Instead, configuration values for each deployment should be provided at deploy-time, and therefore declared as close as possible to the other deployment resources. This makes the Argo apps the perfect place for the job. Argo apps can supply Helm values from their `.spec.source.helm.valuesObject`, which acts as an inline values file.
+
+Alternatively, they can reference independent values files from their `.spec.sources[*].helm.valueFiles`. Argo apps can [references multiple sources](https://argo-cd.readthedocs.io/en/release-2.9/user-guide/multiple_sources/#helm-value-files-from-external-git-repository) and supply a chart from a helm repository with values files from the cluster repository.
+
+```plaintext
+🦊 Rolling
+  📁 namespaces
+    📁 argo-cd
+      📁 argoproj.io.Applications
+        📄 *.yaml
+        📄 emu.yaml
+          | spec:
+          |   sources:
+          |     - repoURL: https://example.com/helm
+          |       chart: emu
+          |       targetRevision: 1.2.3
+          |       helm:
+          |         valueFiles:
+          |           - $values/emu.yaml # This `$values` corresponds to the `ref: values` below.
+          |     - ref: values
+          |       repoURL: https://example.com/git/clusters/rolling.git
+  ┌────── |       path: values
+  │       |       targetRevision: main
+  │ 📁 **
+  ▼   📄 *.yaml
+  📁 values
+    📄 emu.yaml
+```
+
+
+
+
+
+
+
+
+
+
 
 
 <!--
@@ -977,6 +1021,5 @@ todo
       Production 2
       Refactor SCCs
       Refactor Apps
-    where are the charts values
 
 -->
