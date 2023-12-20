@@ -221,10 +221,10 @@ The structure I presented is agnostic to changes freezes, and the deployment pro
   📁 namespaces
     📁 argo-cd
       📁 argoproj.io.Applications
-        📜 wombat.yaml   ◄── The
-        📜 emu.yaml      ◄── source
-        📜 kangaroo.yaml ◄── of
-        📜 platypus.yaml ◄── truth
+        📜 wombat.yaml   ◄── Consistently updated every SCRUM Sprint.
+        📜 emu.yaml      ◄── Released when it's ready.
+        📜 kangaroo.yaml ◄── One big release every 6 months.
+        📜 platypus.yaml ◄── New release when any app above is released.
         📜 *.yaml
 ```
 
@@ -1017,18 +1017,40 @@ In this section, I will list a couple a terms that I think might bring confusion
 
 
 
+## Finding What Is Deployed Where
 
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Generating a table of all the applications and their versions that are deployed across all clusters is easy and doesn't even necessitate any tooling more advanced than shell scripting. The Argo Apps are all stored and versioned in the Cluster Repositories. Each of them is a Kubernetes resource that defines precisely what version of an application chart is deployed in the cluster.
+
+```plaintext
+🦊 Production
+  📁 namespaces
+    📁 argo-cd
+      📁 argoproj.io.Applications
+        📜 wombat.yaml   ◄── The
+        📜 emu.yaml      ◄── only
+        📜 kangaroo.yaml ◄── source
+        📜 platypus.yaml ◄── of truth
+        📜 *.yaml
+```
+
+
+
+## Finding What Happened When Something Broke
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Deploying applications only signs you in for the rest of their maintenance and operation lifecycle. Monitoring and alerting are out of scope of this document, which focuses solely on the deployment path. However, with correct monitoring, you will be able to trace the appearance of problems to a point in time and space, space being a cluster in this case, and use the versioning capabilities of Git to get which applications or configurations were updated just prior.
 
 
 
 <!--
 todo
   spelling
-  phrasing consolidation
+  phrasing consolidation, esp. with glossary
   links!
   more sections
-    What is deployed where
-    Something broke, find what happened
     Dev
       no local because 👿 VPN blocks `docker pull`
     Scaling to more clusters
