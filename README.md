@@ -743,12 +743,12 @@ The closest evolution is to split the chart into 4: one for each component and o
 │       📄 *.yaml
 │     📄 Chart.yaml
 │     📄 values.yaml
-┌─► 📦 bear
+├─► 📦 bear
 │     📁 templates
 │       📄 *.yaml
 │     📄 Chart.yaml
 │     📄 values.yaml
-┌─► 📦 beaver
+├─► 📦 beaver
 │     📁 templates
 │       📄 *.yaml
 │     📄 Chart.yaml
@@ -772,7 +772,7 @@ The final form of the component split puts each component in its own application
 │ 📁 Containers
 │   🐳 Containerfile
 │ 📁 Charts
-┌─► 📦 beaver
+├─► 📦 beaver
 │     📁 templates
 │       📄 *.yaml
 │     📄 Chart.yaml
@@ -800,14 +800,14 @@ In this section, I will weigh the pros and cons of merging all the cluster repos
   🏭 Staging
   🏭 Rolling
 ┌─► 📁 namespaces
-│   📁 argo-cd
-│     📁 argoproj.io.Applications
-└────── 📜 rolling-cluster.yaml
-        📜 argo-cd.yaml
-        📜 wombat.yaml
-        📜 emu.yaml
-        📜 kangaroo.yaml
-        📜 platypus.yaml
+│     📁 argo-cd
+│       📁 argoproj.io.Applications
+└──────── 📜 rolling-cluster.yaml
+          📜 argo-cd.yaml
+          📜 wombat.yaml
+          📜 emu.yaml
+          📜 kangaroo.yaml
+          📜 platypus.yaml
       📁 wildlife
         📁 bitnami.com.SealedSecret
           📄 emu-omelet.yaml
@@ -821,7 +821,7 @@ In this section, I will weigh the pros and cons of merging all the cluster repos
 
 You could imagine splitting the mono repo by resource type first, and cluster second, but you would need to define an Argo App for each cluster sub-folder, leading to the explosion of the Argo App population for little benefit.
 
-```diff
+```plaintext
 🦊 Deployments
   📁 argoproj.io.Applications
     🏭 Production
@@ -1045,6 +1045,158 @@ Deploying applications only signs you in for the rest of their maintenance and o
 
 
 
+## Scaling To More Clusters
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+In this section, I will add another Production cluster for redundancy. I will explore some techniques that can be used to reduce repetition across the two clusters. I will skip the simplest scenario consisting of two perfectly identical clusters, in which case the same cluster repo can be used as a source of truth for both of them.
+
+At the extreme opposite, the two production clusters would have all their configuration duplicated. Each cluster repo would be independent, this means a lot of duplication to define the applications and the other Kubernetes resources, and more maintenance effort to synchronize the versions and the configuration in both clusters. Having two indenpendent clusters can allow for a two-phase release of new application versions, where one cluster is upgraded while the other is taken out of the load balancing system. While this solution can bring some safety, it looks like a poor parody when compared to a proper rollout strategy brought by Kubernetes Deployments or Argo Rollouts.
+
+Solutions in the middle will involve using a common cluster repository to hold the common applications and resources. I will take an example with the same applications, same ingresses, but different secrets. The two clusters are Production 1 and Production 2, they contain only the secrets, which are imagined to have different values for each cluster, and their `production-*-cluster.yaml` Apps of Apps use multiple sources to reference not only the corresponding cluster repo, but also the Production Common repo. Production Common is a repo that contains all the common resources, here: the Argo applications, except the app of apps for each cluster, and the ingresses, which are imagined common to all clusters. Values files for the charts of the applications are common.
+
+```diff
+  Clusters
+    🦊 Production Common
+  ┌─► 📁 namespaces
+  │     📁 argo-cd
+  │       📁 argoproj.io.Applications
+> │         📜 argo-cd.yaml
+> │         📜 wombat.yaml
+> │         📜 emu.yaml
+> │         📜 kangaroo.yaml
+> │         📜 platypus.yaml
+  │     📁 wildlife
+  │       📁 networking.k8s.io.Ingresses
+> │         📄 wombat.yaml
+> │         📄 emu.yaml
+> │         📄 kangaroo.yaml
+> │         📄 platypus.yaml
+  │ 🦊 Production 1
+  │   📁 namespaces
+  │   ▲ 📁 argo-cd
+  │   │   📁 argoproj.io.Applications
+  │   │     📜 production-1-cluster.yaml
+  │   │       | spec:
+  │   │       |   sources:
+  │   │       |     - repoURL: https://example.com/git/clusters/production-1.git
+  │   └────── |       path: namespaces
+  │           |       targetRevision: main
+  │           |     - repoURL: https://example.com/git/clusters/production-common.git
+  └────────── |       path: namespaces
+              |       targetRevision: main
+<           📜 argo-cd.yaml
+<           📜 wombat.yaml
+<           📜 emu.yaml
+<           📜 kangaroo.yaml
+<           📜 platypus.yaml
+        📁 wildlife
+          📁 bitnami.com.SealedSecret
+            📄 emu-omelet.yaml
+            📄 kangaroo-pocket.yaml
+<         📁 networking.k8s.io.Ingresses
+<           📄 wombat.yaml
+<           📄 emu.yaml
+<           📄 kangaroo.yaml
+<           📄 platypus.yaml
+    🦊 Production 2
+      📁 namespaces
+        📁 argo-cd
+          📁 argoproj.io.Applications
+            📜 production-2-cluster.yaml
+<           📜 argo-cd.yaml
+<           📜 wombat.yaml
+<           📜 emu.yaml
+<           📜 kangaroo.yaml
+<           📜 platypus.yaml
+        📁 wildlife
+          📁 bitnami.com.SealedSecret
+            📄 emu-omelet.yaml
+            📄 kangaroo-pocket.yaml
+<         📁 networking.k8s.io.Ingresses
+<           📄 wombat.yaml
+<           📄 emu.yaml
+<           📄 kangaroo.yaml
+<           📄 platypus.yaml
+```
+
+If some configuration must be supplied to the deployment charts, values files can be referenced from each cluster, and merged at deploy-time uses the Argo Apps ability to declare mustiple sources. The Argo Apps may be declared in a common chart, rather that from raw YAML manifests, to allow for configuration to be provided. I will focus on Production 2, but Production 1 is the same.
+
+```diff
+  Clusters
+    🦊 Production Common
+      📁 charts
+ ┌────► 📦 applications
+ │        📁 templates
+ │          📜 argo-cd.yaml
+ │          📜 wombat.yaml
+ │          📜 emu.yaml
+ │          📜 kangaroo.yaml
+ │          📜 platypus.yaml
+ │            | spec:
+ │            |   sources:
+ │            |     - repoURL: https://example.com/helm ◄── 1️⃣
+ │            |       chart: platypus
+ │            |       targetRevision: 1.2.3
+ │            |       helm:
+ │            |         valueFiles:
+ │            |           - $values/platypus.yaml
+ │            |     - ref: values
+ │            |       repoURL: https://example.com/git/clusters/{{ $.Values.valuesFilesRepo }}.git ◄── 2️⃣
+┌│─────────── |       path: values
+││            |       targetRevision: main
+││        📄 Chart.yaml
+││┌─► 📁 namespaces
+│││     📁 wildlife
+│││       📁 networking.k8s.io.Ingresses
+│││         📄 wombat.yaml
+│││         📄 emu.yaml
+│││         📄 kangaroo.yaml
+│││         📄 platypus.yaml
+│││ 🦊 Production 1
+│││ 🦊 Production 2
+│││   📁 namespaces
+│││   ▲ 📁 argo-cd
+│││   │   📁 argoproj.io.Applications
+│││   │     📜 production-2-cluster.yaml
+│││   │       | spec:
+│││   │       |   sources:
+│││   │       |     - repoURL: https://example.com/git/clusters/production-2.git ◄── 3️⃣
+│││   └────── |       path: namespaces
+│││           |       targetRevision: main
+│││           |     - repoURL: https://example.com/git/clusters/production-common.git ◄── 4️⃣
+││└────────── |       path: namespaces
+││            |       targetRevision: main
+││            |     - repoURL: https://example.com/git/clusters/production-common.git ◄── 5️⃣
+│└─────────── |       path: charts/applications
+│             |       targetRevision: main
+│             |       helm:
+│             |         valuesObject:
+│             |           valuesFilesRepo: production-2
+│       📁 wildlife
+│         📁 bitnami.com.SealedSecret
+│           📄 emu-omelet.yaml
+│           📄 kangaroo-pocket.yaml
+└───► 📁 values
+        📄 platypus.yaml
+```
+
+Things to consider:
+
+1. The Production Common repository doesn't contain the raw manifests of the Argo Apps for each application to deploy, but rather a chart that deploys Argo Apps. The applications reference the versioned helm chart as a source, as usual.
+
+2. Not forgetting that these Argo Application resources are not raw YAML manifests anymore, they are now templated, the templating syntax can be used to inject the name of the repository that will provide the values files for the application chart.
+
+3. The App of Apps in each production cluster references the raw resources from the current repository, here, this will deploy the secrets. As usual.
+
+4. The App of Apps in each production cluster also references the raw resources from the Production Common repository, here, this will deploy the ingresses. As usual.
+
+5. Finally, the App of Apps in each production cluster references the applications chart from the Production Common repo, and provides configuration values. Doing so will reference the production cluster repo as the source for values files for the applications deployed in this cluster.
+
+
+
+
+
 <!--
 todo
   spelling
@@ -1053,9 +1205,5 @@ todo
   more sections
     Dev
       no local because 👿 VPN blocks `docker pull`
-    Scaling to more clusters
-      Production 2
-      Refactor SCCs
-      Refactor Apps
 
 -->
