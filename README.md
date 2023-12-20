@@ -167,7 +167,43 @@ It is worth to consider that promotion doesn't apply to the application `*.dll`,
 
 
 
---------------------------------------------------------------------------------
+## Glossary
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Having a [ubiquitous language](https://en.wikipedia.org/wiki/Domain-driven_design#Overview) is a prerequisite for everyone to understand each other. It allows to associate specific terms to specific meanings, and prevents misunderstandings based on periphrases or polysemous words. Application, repository and cluster are perfect example of ambiguous vocabulary.
+
+In this section, I will list a couple a terms that I think might bring confusion. I will do my best to use them appropriately in the rest of this document.
+
+* In this document, an `App[lication]` is an HTTP webserver: it listens the HTTP(S) requests and responds to them.
+
+* Applications are defined by their `App[lication] [Source] Code`, written in any programming language, using any libraries and frameworks.
+
+* An `{Artifact|[Application] Binary}` is the product of compiling the Source Code of an Application. Typical examples are the `*.dll` of .NET, or the `*.{jar|war}` of Java.
+
+* Artifacts are pushed to an `Artifact {Repository|Registry}`, which stores them in an organized fashion. Examples are [NuGet.org](https://www.nuget.org/), [Maven Central](https://central.sonatype.com/), [NPM](https://www.npmjs.com/), or [JFrog Artifactory](https://jfrog.com/artifactory/).
+
+* The Application Source Code is stored and versioned in an `Application [Git] Repository`.
+
+* If a process is a running instance of a program, then a `Container` is a running instance of an Image.
+
+* A `{Container|Docker}file` is the source code for building a `[Container] Image`.
+
+* Container Images are pushed to a `Container Registry`, which stores them in an organized fashion. Examples are the [Docker Hub](https://hub.docker.com/), or the [GitHub Container Registry](https://github.blog/2020-09-01-introducing-github-container-registry/).
+
+* A `[Application] {Deployment Package|[Deployment] [Helm] Chart}` contains, or can be used to generate, all the Kubernetes resources necessary to deploy a containerized Application in a Kubernetes cluster.
+
+* An `Umbrella [Helm] Chart` is a hollow shell merely referencing other Application Helm Charts. Such a meta-package helps keeping specific versions of other Application Charts together.
+
+* A `Packaged [Helm] Chart` is the product of packaging the templates and metadata of a Helm Chart into a portable `*.tgz` archive.
+
+* Packaged Helm Charts are pushed to a `Helm Repository`, which stores them in an organized fashion. An example is the [Artifact Hub] (https://artifacthub.io/).
+
+* A `GitOps Agent` is a special containerized Application running inside a Kubernetes cluster. It observes a set of sources and automatically synchronizes the Kubernetes resources of the cluster to match the desired state defined in those sources. Examples are [Argo CD](https://argo-cd.readthedocs.io/en/stable/), or [Flux CD](https://fluxcd.io/flux/).
+
+* An `Argo [CD] App[lication]` is a Kubernetes custom resource that defines what sources a GitOps Agent should use to deploy an Application in its Kubernetes cluster. Another example is [the Flux CD's HelmRelease](https://fluxcd.io/flux/guides/helmreleases/#define-a-helm-release).
+
+* A `Cluster [Git] Repository` stores and versions the resources to be deployed in the cluster, serving as a source for Argo Applications.
 
 
 
@@ -210,96 +246,68 @@ I thought releasing a new version could be triggered by any push to the `main` b
 
 
 
-## Different Apps, Different Release Cycles
+## What Is Deployed Where?
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-The structure I presented is agnostic to changes freezes, and the deployment process is not tightly coupled to the release cycle of any specific application. Which applications are deployed in which clusters is determined entirely by the `.spec.source` of the Argo Apps defined in each cluster. Deploying different application on different release cycles simple means updating different files at different moments, which shouldn't be so difficult.
+Generating a table of all the applications and their versions that are deployed across all clusters is easy and doesn't even necessitate any tooling more advanced than shell scripting. The Argo Apps are all stored and versioned in the Cluster Repositories. Each of them is a Kubernetes resource that defines precisely what version of an application chart is deployed in the cluster.
 
 ```plaintext
 🦊 Production
   📁 namespaces
     📁 argo-cd
       📁 argoproj.io.Applications
-        📜 wombat.yaml   ◄── Consistently updated every SCRUM Sprint.
-        📜 emu.yaml      ◄── Released when it's ready.
-        📜 kangaroo.yaml ◄── One big release every 6 months.
-        📜 platypus.yaml ◄── New release when any app above is released.
+        📜 wombat.yaml   ◄── The
+        📜 emu.yaml      ◄── only
+        📜 kangaroo.yaml ◄── source
+        📜 platypus.yaml ◄── of truth
         📜 *.yaml
 ```
 
 
 
-## Nightly Builds
+## Something Broke, What Happened?
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-Do I need nightly builds? No. The latest changes from the `main` branch of each application repo is already automatically built and deployed to the Rolling cluster, I don't need a nightly process to do the same thing again, this wouldn't bring any benefit.
-
-Unless you make so many changes and release so many stable versions of so many applications that the Rolling cluster changes every 10 seconds, you don't need nightly builds. Even then, you are better off finding a solution to throttle your pipeline runs than having nightly builds.
+Deploying applications only signs you in for the rest of their maintenance and operation lifecycle. Monitoring and alerting are out of scope of this document, which focuses solely on the deployment path. However, with correct monitoring, you will be able to trace the appearance of problems to a point in time and space, space being a cluster in this case, and use the versioning capabilities of Git to get which applications or configurations were updated just prior.
 
 
 
-## One Argo CD Instance Per Cluster
+## Where Are The Charts Values?
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-I made the assumption that each cluster would have its own GitOps agent installed inside it, but some teams will prefer to use a separate [Management](https://akuity.io/blog/argo-cd-architectures-explained/) [cluster](https://codefresh.io/blog/a-comprehensive-overview-of-argo-cd-architectures-2023/) to host their GitOps agent, and make it deploy to the other, now remote, clusters. This is perfectly acceptable, but it requires moving a few files around.
+It is usual to see Helm charts for a given application containing not only the default `values.yaml` files, but also a plethora of values files for each of the clusters the application is deployed to. To me, this violates the principle that the helm chart is an environment-agnostic deliverable that could be used to deploy the application anywhere. This is why I haven't created other values files inthe applications repositories.
 
-```diff
-Clusters
-  🦊 Management
-    📁 namespaces
-    ▲ 📁 argo-cd
-    │   📁 argoproj.io.Applications ◄── 1️⃣
-    │     📁 clusters
-    │       🏭 management
-    └──────── 📜 management-cluster.yaml
->             📜 argo-cd.yaml
-            🏭 production
-   ┌───────── 📜 production-cluster.yaml
-   │          📜 *.yaml
-   │        🏭 staging
-   ┌───────── 📜 staging-cluster.yaml
-   │          📜 *.yaml
->  │        🏭 rolling
->  │          📜 rolling-cluster.yaml
->  │            | spec:
->  │            |   destination:
->  │            |     name: rolling-cluster
->  │            |   source:
->  │            |     repoURL: https://example.com/git/clusters/rolling.git
->  ┌─────────── |     path: namespaces
->  │            |     targetRevision: main
->  │          📜 wombat.yaml
->  │          📜 emu.yaml
->  │          📜 kangaroo.yaml
->  ▼          📜 platypus.yaml
-  🦊 Production
-  🦊 Staging
-  🦊 Rolling
-    📁 namespaces
-<   ▲ 📁 argo-cd
-<   │   📁 argoproj.io.Applications ◄── 2️⃣
-<   └──── 📜 rolling-cluster.yaml
-<         📜 argo-cd.yaml
-<         📜 wombat.yaml
-<         📜 emu.yaml
-<         📜 kangaroo.yaml
-<         📜 platypus.yaml
-      📁 **
+Instead, configuration values for each deployment should be provided at deploy-time, and therefore declared as close as possible to the other deployment resources. This makes the Argo apps the perfect place for the job. Argo apps can supply Helm values from their `.spec.source.helm.valuesObject`, which acts as an inline values file.
+
+Alternatively, they can reference independent values files from their `.spec.sources[*].helm.valueFiles`. Argo apps can [references multiple sources](https://argo-cd.readthedocs.io/en/release-2.9/user-guide/multiple_sources/#helm-value-files-from-external-git-repository) and supply a chart from a helm repository with values files from the cluster repository.
+
+```plaintext
+🦊 Rolling
+  📁 namespaces
+    📁 argo-cd
+      📁 argoproj.io.Applications
         📄 *.yaml
+        📄 emu.yaml
+          | spec:
+          |   sources:
+          |     - repoURL: https://example.com/helm
+          |       chart: emu
+          |       targetRevision: 1.2.3
+          |       helm:
+          |         valueFiles:
+          |           - $values/emu.yaml # This `$values` corresponds to the `ref: values` below.
+          |     - ref: values
+          |       repoURL: https://example.com/git/clusters/rolling.git
+  ┌────── |       path: values
+  │       |       targetRevision: main
+  │ 📁 **
+  ▼   📄 *.yaml
+  📁 values
+    📄 emu.yaml
 ```
-
-1. The management cluster has its own Git repository, which contains the Argo Apps deployed in itself, but also all other clusters, organized nicely with a sub-folder per cluster. In addition, the Argo Apps might need to be renamed to prevent conflicts between the same Argo Apps deployed in different clusters. By default, Argo CD observes its own namespace for Applications resources, but [can be configured to look in other namespaces as well](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/app-any-namespace/).
-
-   The `.spec.destination.name` of each Argo App will need to be [updated to target the appropriate cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/declarative-setup/#clusters), otherwise the application will be deployed in the Management cluster!
-
-2. There is no point having the Argo Apps defined and deployed in the remote clusters. There is no Argo CD instance there anymore, those resources will just pile up and take dust.
-
-The benefit of having one Argo CD instance per cluster is that each cluster becomes self-operative, and, most importantly, can be updated independently without the risk of 🍆 up any other cluster of potential higher business value. Argo CD is the GitOps agent, but, thought its Argo App definition, is also just another application.
-
-The benefit of a single Argo CD instance is having a single counter to manage and observe everything. A single URL, a single UI, all the tiles at hand's reach. However, the deployment process presented in this document does not directly action the GitOps agent, relying on its passive state synchronization capabilities instead. If you desire a single UI to observe all your applications, it might be a better option to [wait the implementation of the feature request for the Argo CD Server to support remote instances](https://github.com/argoproj/argo-cd/issues/11498), and deploy [Argo CD Core in each cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/core/).
 
 
 
@@ -327,6 +335,263 @@ flowchart LR
   C -- "uses" --> A
   D -- "used" --> B
 ```
+
+
+
+## Applications With Multiple Components
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Applications range from simple mono microservice HTTP APIs to interconnected Krakens. In this section I will explore splitting the Platypus application into 3 webservices: Duck, Bear and Beaver.
+
+The easiest option is to keep splitting the application repo into Source, Containers and Charts first, then splits again into each component. There is one chart that generates Kubernetes resources for the 3 components.
+
+```plaintext
+🦊 Platypus
+  📁 Sources
+    📁 Duck
+      📁 **
+        📄 *.{cs,fs,java,kt,py,go,rs}
+    📁 Bear
+      📁 **
+        📄 *.{cs,fs,java,kt,py,go,rs}
+    📁 Beaver
+      📁 **
+        📄 *.{cs,fs,java,kt,py,go,rs}
+  📁 Containers
+    🐳 Containerfile.duck
+    🐳 Containerfile.bear
+    🐳 Containerfile.beaver
+  📁 Charts
+    📦 platypus
+      📁 templates
+        📁 duck
+          📄 *.yaml
+        📁 bear
+          📄 *.yaml
+        📁 beaver
+          📄 *.yaml
+      📄 Chart.yaml
+      📄 values.yaml
+  🔧 Jenkinsfile
+```
+
+The major issue is that there are now 3 components for a single pipeline, which must now build 3 applications and 3 container images. This means building all 3 components everytime, or increase the complexity of the pipeline to detect which component(s) have been changed. There is only one chart, which makes for a single `appVersion` field in `Chart.yaml`, and the choice of which version to pick if the components are versioned separately.
+
+Having the same version for all the components and systematically building them together makes the most sense here.
+
+The closest evolution is to split the chart into 4: one for each component and one umbrella chart, referencing the components using the Helm dependency mechanism.
+
+```plaintext
+🦊 Platypus
+  📁 Sources
+  📁 Containers
+  📁 Charts
+┌─► 📦 duck
+│     📁 templates
+│       📄 *.yaml
+│     📄 Chart.yaml
+│     📄 values.yaml
+├─► 📦 bear
+│     📁 templates
+│       📄 *.yaml
+│     📄 Chart.yaml
+│     📄 values.yaml
+├─► 📦 beaver
+│     📁 templates
+│       📄 *.yaml
+│     📄 Chart.yaml
+│     📄 values.yaml
+│   📦 platypus
+└──── 📄 Chart.yaml
+  🔧 Jenkinsfile
+```
+
+Alternatively, put the component charts in `Charts/platypus/charts`.
+
+The final form of the component split puts each component in its own application repository, each containing its own source code, container manifest, Helm chart and pipeline, and functioning independently. The Platypus application repository now doesn't hold any source code nor container manifest anymore, and consists solely of an umbrella chart and the pipeline to package it, triggered by the push of one of its dependencies to the Helm repository.
+
+```plaintext
+🦊 Duck
+🦊 Bear
+🦊 Beaver
+▲ 📁 Sources
+│   📁 **
+│     📄 *.{cs,fs,java,kt,py,go,rs}
+│ 📁 Containers
+│   🐳 Containerfile
+│ 📁 Charts
+├─► 📦 beaver
+│     📁 templates
+│       📄 *.yaml
+│     📄 Chart.yaml
+│     📄 values.yaml
+│ 🔧 Jenkinsfile
+│
+│ 🦊 Platypus
+│   📁 Charts
+│     📦 platypus
+└────── 📄 Chart.yaml
+    🔧 Jenkinsfile
+```
+
+
+
+## Scaling To More Applications
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Adding more applications to the infrastructure consists in adding a new application repository, containing the sources, containerfiles, Helm charts and build pipeline. To deploy the new application to any cluster, add a new Argo app manifest to the appropriate cluster(s).
+
+
+
+## Scaling To More Clusters
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+In this section, I will add another Production cluster for redundancy. I will explore some techniques that can be used to reduce repetition across the two clusters. I will skip the simplest scenario consisting of two perfectly identical clusters, in which case the same cluster repo can be used as a source of truth for both of them.
+
+At the extreme opposite, the two production clusters would have all their configuration duplicated. Each cluster repo would be independent, this means a lot of duplication to define the applications and the other Kubernetes resources, and more maintenance effort to synchronize the versions and the configuration in both clusters. Having two indenpendent clusters can allow for a two-phase release of new application versions, where one cluster is upgraded while the other is taken out of the load balancing system. While this solution can bring some safety, it looks like a poor parody when compared to a proper rollout strategy brought by Kubernetes Deployments or Argo Rollouts.
+
+Solutions in the middle will involve using a common cluster repository to hold the common applications and resources. I will take an example with the same applications, same ingresses, but different secrets. The two clusters are Production 1 and Production 2, they contain only the secrets, which are imagined to have different values for each cluster, and their `production-*-cluster.yaml` Apps of Apps use multiple sources to reference not only the corresponding cluster repo, but also the Production Common repo. Production Common is a repo that contains all the common resources, here: the Argo applications, except the app of apps for each cluster, and the ingresses, which are imagined common to all clusters. Values files for the charts of the applications are common.
+
+```diff
+  Clusters
+    🦊 Production Common
+  ┌─► 📁 namespaces
+  │     📁 argo-cd
+  │       📁 argoproj.io.Applications
+> │         📜 argo-cd.yaml
+> │         📜 wombat.yaml
+> │         📜 emu.yaml
+> │         📜 kangaroo.yaml
+> │         📜 platypus.yaml
+  │     📁 wildlife
+  │       📁 networking.k8s.io.Ingresses
+> │         📄 wombat.yaml
+> │         📄 emu.yaml
+> │         📄 kangaroo.yaml
+> │         📄 platypus.yaml
+  │ 🦊 Production 1
+  │   📁 namespaces
+  │   ▲ 📁 argo-cd
+  │   │   📁 argoproj.io.Applications
+  │   │     📜 production-1-cluster.yaml
+  │   │       | spec:
+  │   │       |   sources:
+  │   │       |     - repoURL: https://example.com/git/clusters/production-1.git
+  │   └────── |       path: namespaces
+  │           |       targetRevision: main
+  │           |     - repoURL: https://example.com/git/clusters/production-common.git
+  └────────── |       path: namespaces
+              |       targetRevision: main
+<           📜 argo-cd.yaml
+<           📜 wombat.yaml
+<           📜 emu.yaml
+<           📜 kangaroo.yaml
+<           📜 platypus.yaml
+        📁 wildlife
+          📁 bitnami.com.SealedSecret
+            📄 emu-omelet.yaml
+            📄 kangaroo-pocket.yaml
+<         📁 networking.k8s.io.Ingresses
+<           📄 wombat.yaml
+<           📄 emu.yaml
+<           📄 kangaroo.yaml
+<           📄 platypus.yaml
+    🦊 Production 2
+      📁 namespaces
+        📁 argo-cd
+          📁 argoproj.io.Applications
+            📜 production-2-cluster.yaml
+<           📜 argo-cd.yaml
+<           📜 wombat.yaml
+<           📜 emu.yaml
+<           📜 kangaroo.yaml
+<           📜 platypus.yaml
+        📁 wildlife
+          📁 bitnami.com.SealedSecret
+            📄 emu-omelet.yaml
+            📄 kangaroo-pocket.yaml
+<         📁 networking.k8s.io.Ingresses
+<           📄 wombat.yaml
+<           📄 emu.yaml
+<           📄 kangaroo.yaml
+<           📄 platypus.yaml
+```
+
+If some configuration must be supplied to the deployment charts, values files can be referenced from each cluster, and merged at deploy-time uses the Argo Apps ability to declare mustiple sources. The Argo Apps may be declared in a common chart, rather that from raw YAML manifests, to allow for configuration to be provided. I will focus on Production 2, but Production 1 is the same.
+
+```diff
+  Clusters
+    🦊 Production Common
+      📁 charts
+ ┌────► 📦 applications
+ │        📁 templates
+ │          📜 argo-cd.yaml
+ │          📜 wombat.yaml
+ │          📜 emu.yaml
+ │          📜 kangaroo.yaml
+ │          📜 platypus.yaml
+ │            | spec:
+ │            |   sources:
+ │            |     - repoURL: https://example.com/helm ◄── 1️⃣
+ │            |       chart: platypus
+ │            |       targetRevision: 1.2.3
+ │            |       helm:
+ │            |         valueFiles:
+ │            |           - $values/platypus.yaml
+ │            |     - ref: values
+ │            |       repoURL: https://example.com/git/clusters/{{ $.Values.valuesFilesRepo }}.git ◄── 2️⃣
+┌│─────────── |       path: values
+││            |       targetRevision: main
+││        📄 Chart.yaml
+││┌─► 📁 namespaces
+│││     📁 wildlife
+│││       📁 networking.k8s.io.Ingresses
+│││         📄 wombat.yaml
+│││         📄 emu.yaml
+│││         📄 kangaroo.yaml
+│││         📄 platypus.yaml
+│││ 🦊 Production 1
+│││ 🦊 Production 2
+│││   📁 namespaces
+│││   ▲ 📁 argo-cd
+│││   │   📁 argoproj.io.Applications
+│││   │     📜 production-2-cluster.yaml
+│││   │       | spec:
+│││   │       |   sources:
+│││   │       |     - repoURL: https://example.com/git/clusters/production-2.git ◄── 3️⃣
+│││   └────── |       path: namespaces
+│││           |       targetRevision: main
+│││           |     - repoURL: https://example.com/git/clusters/production-common.git ◄── 4️⃣
+││└────────── |       path: namespaces
+││            |       targetRevision: main
+││            |     - repoURL: https://example.com/git/clusters/production-common.git ◄── 5️⃣
+│└─────────── |       path: charts/applications
+│             |       targetRevision: main
+│             |       helm:
+│             |         valuesObject:
+│             |           valuesFilesRepo: production-2
+│       📁 wildlife
+│         📁 bitnami.com.SealedSecret
+│           📄 emu-omelet.yaml
+│           📄 kangaroo-pocket.yaml
+└───► 📁 values
+        📄 platypus.yaml
+```
+
+Things to consider:
+
+1. The Production Common repository doesn't contain the raw manifests of the Argo Apps for each application to deploy, but rather a chart that deploys Argo Apps. The applications reference the versioned helm chart as a source, as usual.
+
+2. Not forgetting that these Argo Application resources are not raw YAML manifests anymore, they are now templated, the templating syntax can be used to inject the name of the repository that will provide the values files for the application chart.
+
+3. The App of Apps in each production cluster references the raw resources from the current repository, here, this will deploy the secrets. As usual.
+
+4. The App of Apps in each production cluster also references the raw resources from the Production Common repository, here, this will deploy the ingresses. As usual.
+
+5. Finally, the App of Apps in each production cluster references the applications chart from the Production Common repo, and provides configuration values. Doing so will reference the production cluster repo as the source for values files for the applications deployed in this cluster.
 
 
 
@@ -689,102 +954,96 @@ In cluster repositories, hotfixes can be implemented directly on `main`. The Git
 
 
 
-## Applications With Multiple Components
+## Different Apps, Different Release Cycles
 
 > This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-Applications range from simple mono microservice HTTP APIs to interconnected Krakens. In this section I will explore splitting the Platypus application into 3 webservices: Duck, Bear and Beaver.
-
-The easiest option is to keep splitting the application repo into Source, Containers and Charts first, then splits again into each component. There is one chart that generates Kubernetes resources for the 3 components.
+The structure I presented is agnostic to changes freezes, and the deployment process is not tightly coupled to the release cycle of any specific application. Which applications are deployed in which clusters is determined entirely by the `.spec.source` of the Argo Apps defined in each cluster. Deploying different application on different release cycles simple means updating different files at different moments, which shouldn't be so difficult.
 
 ```plaintext
-🦊 Platypus
-  📁 Sources
-    📁 Duck
-      📁 **
-        📄 *.{cs,fs,java,kt,py,go,rs}
-    📁 Bear
-      📁 **
-        📄 *.{cs,fs,java,kt,py,go,rs}
-    📁 Beaver
-      📁 **
-        📄 *.{cs,fs,java,kt,py,go,rs}
-  📁 Containers
-    🐳 Containerfile.duck
-    🐳 Containerfile.bear
-    🐳 Containerfile.beaver
-  📁 Charts
-    📦 platypus
-      📁 templates
-        📁 duck
-          📄 *.yaml
-        📁 bear
-          📄 *.yaml
-        📁 beaver
-          📄 *.yaml
-      📄 Chart.yaml
-      📄 values.yaml
-  🔧 Jenkinsfile
+🦊 Production
+  📁 namespaces
+    📁 argo-cd
+      📁 argoproj.io.Applications
+        📜 wombat.yaml   ◄── Consistently updated every SCRUM Sprint.
+        📜 emu.yaml      ◄── Released when it's ready.
+        📜 kangaroo.yaml ◄── One big release every 6 months.
+        📜 platypus.yaml ◄── New release when any app above is released.
+        📜 *.yaml
 ```
 
-The major issue is that there are now 3 components for a single pipeline, which must now build 3 applications and 3 container images. This means building all 3 components everytime, or increase the complexity of the pipeline to detect which component(s) have been changed. There is only one chart, which makes for a single `appVersion` field in `Chart.yaml`, and the choice of which version to pick if the components are versioned separately.
 
-Having the same version for all the components and systematically building them together makes the most sense here.
 
-The closest evolution is to split the chart into 4: one for each component and one umbrella chart, referencing the components using the Helm dependency mechanism.
+## One Argo CD Instance Per Cluster
 
-```plaintext
-🦊 Platypus
-  📁 Sources
-  📁 Containers
-  📁 Charts
-┌─► 📦 duck
-│     📁 templates
-│       📄 *.yaml
-│     📄 Chart.yaml
-│     📄 values.yaml
-├─► 📦 bear
-│     📁 templates
-│       📄 *.yaml
-│     📄 Chart.yaml
-│     📄 values.yaml
-├─► 📦 beaver
-│     📁 templates
-│       📄 *.yaml
-│     📄 Chart.yaml
-│     📄 values.yaml
-│   📦 platypus
-└──── 📄 Chart.yaml
-  🔧 Jenkinsfile
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+I made the assumption that each cluster would have its own GitOps agent installed inside it, but some teams will prefer to use a separate [Management](https://akuity.io/blog/argo-cd-architectures-explained/) [cluster](https://codefresh.io/blog/a-comprehensive-overview-of-argo-cd-architectures-2023/) to host their GitOps agent, and make it deploy to the other, now remote, clusters. This is perfectly acceptable, but it requires moving a few files around.
+
+```diff
+Clusters
+  🦊 Management
+    📁 namespaces
+    ▲ 📁 argo-cd
+    │   📁 argoproj.io.Applications ◄── 1️⃣
+    │     📁 clusters
+    │       🏭 management
+    └──────── 📜 management-cluster.yaml
+>             📜 argo-cd.yaml
+            🏭 production
+   ┌───────── 📜 production-cluster.yaml
+   │          📜 *.yaml
+   │        🏭 staging
+   ┌───────── 📜 staging-cluster.yaml
+   │          📜 *.yaml
+>  │        🏭 rolling
+>  │          📜 rolling-cluster.yaml
+>  │            | spec:
+>  │            |   destination:
+>  │            |     name: rolling-cluster
+>  │            |   source:
+>  │            |     repoURL: https://example.com/git/clusters/rolling.git
+>  ┌─────────── |     path: namespaces
+>  │            |     targetRevision: main
+>  │          📜 wombat.yaml
+>  │          📜 emu.yaml
+>  │          📜 kangaroo.yaml
+>  ▼          📜 platypus.yaml
+  🦊 Production
+  🦊 Staging
+  🦊 Rolling
+    📁 namespaces
+<   ▲ 📁 argo-cd
+<   │   📁 argoproj.io.Applications ◄── 2️⃣
+<   └──── 📜 rolling-cluster.yaml
+<         📜 argo-cd.yaml
+<         📜 wombat.yaml
+<         📜 emu.yaml
+<         📜 kangaroo.yaml
+<         📜 platypus.yaml
+      📁 **
+        📄 *.yaml
 ```
 
-Alternatively, put the component charts in `Charts/platypus/charts`.
+1. The management cluster has its own Git repository, which contains the Argo Apps deployed in itself, but also all other clusters, organized nicely with a sub-folder per cluster. In addition, the Argo Apps might need to be renamed to prevent conflicts between the same Argo Apps deployed in different clusters. By default, Argo CD observes its own namespace for Applications resources, but [can be configured to look in other namespaces as well](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/app-any-namespace/).
 
-The final form of the component split puts each component in its own application repository, each containing its own source code, container manifest, Helm chart and pipeline, and functioning independently. The Platypus application repository now doesn't hold any source code nor container manifest anymore, and consists solely of an umbrella chart and the pipeline to package it, triggered by the push of one of its dependencies to the Helm repository.
+   The `.spec.destination.name` of each Argo App will need to be [updated to target the appropriate cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/declarative-setup/#clusters), otherwise the application will be deployed in the Management cluster!
 
-```plaintext
-🦊 Duck
-🦊 Bear
-🦊 Beaver
-▲ 📁 Sources
-│   📁 **
-│     📄 *.{cs,fs,java,kt,py,go,rs}
-│ 📁 Containers
-│   🐳 Containerfile
-│ 📁 Charts
-├─► 📦 beaver
-│     📁 templates
-│       📄 *.yaml
-│     📄 Chart.yaml
-│     📄 values.yaml
-│ 🔧 Jenkinsfile
-│
-│ 🦊 Platypus
-│   📁 Charts
-│     📦 platypus
-└────── 📄 Chart.yaml
-    🔧 Jenkinsfile
-```
+2. There is no point having the Argo Apps defined and deployed in the remote clusters. There is no Argo CD instance there anymore, those resources will just pile up and take dust.
+
+The benefit of having one Argo CD instance per cluster is that each cluster becomes self-operative, and, most importantly, can be updated independently without the risk of 🍆 up any other cluster of potential higher business value. Argo CD is the GitOps agent, but, thought its Argo App definition, is also just another application.
+
+The benefit of a single Argo CD instance is having a single counter to manage and observe everything. A single URL, a single UI, all the tiles at hand's reach. However, the deployment process presented in this document does not directly action the GitOps agent, relying on its passive state synchronization capabilities instead. If you desire a single UI to observe all your applications, it might be a better option to [wait the implementation of the feature request for the Argo CD Server to support remote instances](https://github.com/argoproj/argo-cd/issues/11498), and deploy [Argo CD Core in each cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/core/).
+
+
+
+## Nightly Builds
+
+> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+Do I need nightly builds? No. The latest changes from the `main` branch of each application repo is already automatically built and deployed to the Rolling cluster, I don't need a nightly process to do the same thing again, this wouldn't bring any benefit.
+
+Unless you make so many changes and release so many stable versions of so many applications that the Rolling cluster changes every 10 seconds, you don't need nightly builds. Even then, you are better off finding a solution to throttle your pipeline runs than having nightly builds.
 
 
 
@@ -932,276 +1191,13 @@ If you want to reduce duplication in the pipeline code, you may want to refactor
 
 
 
-## Scaling To More Applications
-
-> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
-
-Adding more applications to the infrastructure consists in adding a new application repository, containing the sources, containerfiles, Helm charts and build pipeline. To deploy the new application to any cluster, add a new Argo app manifest to the appropriate cluster(s).
-
-
-
-## Where Are The Charts Values?
-
-> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
-
-It is usual to see Helm charts for a given application containing not only the default `values.yaml` files, but also a plethora of values files for each of the clusters the application is deployed to. To me, this violates the principle that the helm chart is an environment-agnostic deliverable that could be used to deploy the application anywhere. This is why I haven't created other values files inthe applications repositories.
-
-Instead, configuration values for each deployment should be provided at deploy-time, and therefore declared as close as possible to the other deployment resources. This makes the Argo apps the perfect place for the job. Argo apps can supply Helm values from their `.spec.source.helm.valuesObject`, which acts as an inline values file.
-
-Alternatively, they can reference independent values files from their `.spec.sources[*].helm.valueFiles`. Argo apps can [references multiple sources](https://argo-cd.readthedocs.io/en/release-2.9/user-guide/multiple_sources/#helm-value-files-from-external-git-repository) and supply a chart from a helm repository with values files from the cluster repository.
-
-```plaintext
-🦊 Rolling
-  📁 namespaces
-    📁 argo-cd
-      📁 argoproj.io.Applications
-        📄 *.yaml
-        📄 emu.yaml
-          | spec:
-          |   sources:
-          |     - repoURL: https://example.com/helm
-          |       chart: emu
-          |       targetRevision: 1.2.3
-          |       helm:
-          |         valueFiles:
-          |           - $values/emu.yaml # This `$values` corresponds to the `ref: values` below.
-          |     - ref: values
-          |       repoURL: https://example.com/git/clusters/rolling.git
-  ┌────── |       path: values
-  │       |       targetRevision: main
-  │ 📁 **
-  ▼   📄 *.yaml
-  📁 values
-    📄 emu.yaml
-```
-
-
-
-## Glossary
-
-> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
-
-Having a [ubiquitous language](https://en.wikipedia.org/wiki/Domain-driven_design#Overview) is a prerequisite for everyone to understand each other. It allows to associate specific terms to specific meanings, and prevents misunderstandings based on periphrases or polysemous words. Application, repository and cluster are perfect example of ambiguous vocabulary.
-
-In this section, I will list a couple a terms that I think might bring confusion. I will do my best to use them appropriately in the rest of this document.
-
-* In this document, an `App[lication]` is an HTTP webserver: it listens the HTTP(S) requests and responds to them.
-
-* Applications are defined by their `App[lication] [Source] Code`, written in any programming language, using any libraries and frameworks.
-
-* An `{Artifact|[Application] Binary}` is the product of compiling the Source Code of an Application. Typical examples are the `*.dll` of .NET, or the `*.{jar|war}` of Java.
-
-* Artifacts are pushed to an `Artifact {Repository|Registry}`, which stores them in an organized fashion. Examples are [NuGet.org](https://www.nuget.org/), [Maven Central](https://central.sonatype.com/), [NPM](https://www.npmjs.com/), or [JFrog Artifactory](https://jfrog.com/artifactory/).
-
-* The Application Source Code is stored and versioned in an `Application [Git] Repository`.
-
-* If a process is a running instance of a program, then a `Container` is a running instance of an Image.
-
-* A `{Container|Docker}file` is the source code for building a `[Container] Image`.
-
-* Container Images are pushed to a `Container Registry`, which stores them in an organized fashion. Examples are the [Docker Hub](https://hub.docker.com/), or the [GitHub Container Registry](https://github.blog/2020-09-01-introducing-github-container-registry/).
-
-* A `[Application] {Deployment Package|[Deployment] [Helm] Chart}` contains, or can be used to generate, all the Kubernetes resources necessary to deploy a containerized Application in a Kubernetes cluster.
-
-* An `Umbrella [Helm] Chart` is a hollow shell merely referencing other Application Helm Charts. Such a meta-package helps keeping specific versions of other Application Charts together.
-
-* A `Packaged [Helm] Chart` is the product of packaging the templates and metadata of a Helm Chart into a portable `*.tgz` archive.
-
-* Packaged Helm Charts are pushed to a `Helm Repository`, which stores them in an organized fashion. An example is the [Artifact Hub] (https://artifacthub.io/).
-
-* A `GitOps Agent` is a special containerized Application running inside a Kubernetes cluster. It observes a set of sources and automatically synchronizes the Kubernetes resources of the cluster to match the desired state defined in those sources. Examples are [Argo CD](https://argo-cd.readthedocs.io/en/stable/), or [Flux CD](https://fluxcd.io/flux/).
-
-* An `Argo [CD] App[lication]` is a Kubernetes custom resource that defines what sources a GitOps Agent should use to deploy an Application in its Kubernetes cluster. Another example is [the Flux CD's HelmRelease](https://fluxcd.io/flux/guides/helmreleases/#define-a-helm-release).
-
-* A `Cluster [Git] Repository` stores and versions the resources to be deployed in the cluster, serving as a source for Argo Applications.
-
-
-
-## Finding What Is Deployed Where
-
-> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
-
-Generating a table of all the applications and their versions that are deployed across all clusters is easy and doesn't even necessitate any tooling more advanced than shell scripting. The Argo Apps are all stored and versioned in the Cluster Repositories. Each of them is a Kubernetes resource that defines precisely what version of an application chart is deployed in the cluster.
-
-```plaintext
-🦊 Production
-  📁 namespaces
-    📁 argo-cd
-      📁 argoproj.io.Applications
-        📜 wombat.yaml   ◄── The
-        📜 emu.yaml      ◄── only
-        📜 kangaroo.yaml ◄── source
-        📜 platypus.yaml ◄── of truth
-        📜 *.yaml
-```
-
-
-
-## Finding What Happened When Something Broke
-
-> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
-
-Deploying applications only signs you in for the rest of their maintenance and operation lifecycle. Monitoring and alerting are out of scope of this document, which focuses solely on the deployment path. However, with correct monitoring, you will be able to trace the appearance of problems to a point in time and space, space being a cluster in this case, and use the versioning capabilities of Git to get which applications or configurations were updated just prior.
-
-
-
-## Scaling To More Clusters
-
-> This section independently builds on top of the original structure of Git repositories, folder tree and process. From there, it details particular points, explores an alternative structure, or incorporates extra constraints.
-
-In this section, I will add another Production cluster for redundancy. I will explore some techniques that can be used to reduce repetition across the two clusters. I will skip the simplest scenario consisting of two perfectly identical clusters, in which case the same cluster repo can be used as a source of truth for both of them.
-
-At the extreme opposite, the two production clusters would have all their configuration duplicated. Each cluster repo would be independent, this means a lot of duplication to define the applications and the other Kubernetes resources, and more maintenance effort to synchronize the versions and the configuration in both clusters. Having two indenpendent clusters can allow for a two-phase release of new application versions, where one cluster is upgraded while the other is taken out of the load balancing system. While this solution can bring some safety, it looks like a poor parody when compared to a proper rollout strategy brought by Kubernetes Deployments or Argo Rollouts.
-
-Solutions in the middle will involve using a common cluster repository to hold the common applications and resources. I will take an example with the same applications, same ingresses, but different secrets. The two clusters are Production 1 and Production 2, they contain only the secrets, which are imagined to have different values for each cluster, and their `production-*-cluster.yaml` Apps of Apps use multiple sources to reference not only the corresponding cluster repo, but also the Production Common repo. Production Common is a repo that contains all the common resources, here: the Argo applications, except the app of apps for each cluster, and the ingresses, which are imagined common to all clusters. Values files for the charts of the applications are common.
-
-```diff
-  Clusters
-    🦊 Production Common
-  ┌─► 📁 namespaces
-  │     📁 argo-cd
-  │       📁 argoproj.io.Applications
-> │         📜 argo-cd.yaml
-> │         📜 wombat.yaml
-> │         📜 emu.yaml
-> │         📜 kangaroo.yaml
-> │         📜 platypus.yaml
-  │     📁 wildlife
-  │       📁 networking.k8s.io.Ingresses
-> │         📄 wombat.yaml
-> │         📄 emu.yaml
-> │         📄 kangaroo.yaml
-> │         📄 platypus.yaml
-  │ 🦊 Production 1
-  │   📁 namespaces
-  │   ▲ 📁 argo-cd
-  │   │   📁 argoproj.io.Applications
-  │   │     📜 production-1-cluster.yaml
-  │   │       | spec:
-  │   │       |   sources:
-  │   │       |     - repoURL: https://example.com/git/clusters/production-1.git
-  │   └────── |       path: namespaces
-  │           |       targetRevision: main
-  │           |     - repoURL: https://example.com/git/clusters/production-common.git
-  └────────── |       path: namespaces
-              |       targetRevision: main
-<           📜 argo-cd.yaml
-<           📜 wombat.yaml
-<           📜 emu.yaml
-<           📜 kangaroo.yaml
-<           📜 platypus.yaml
-        📁 wildlife
-          📁 bitnami.com.SealedSecret
-            📄 emu-omelet.yaml
-            📄 kangaroo-pocket.yaml
-<         📁 networking.k8s.io.Ingresses
-<           📄 wombat.yaml
-<           📄 emu.yaml
-<           📄 kangaroo.yaml
-<           📄 platypus.yaml
-    🦊 Production 2
-      📁 namespaces
-        📁 argo-cd
-          📁 argoproj.io.Applications
-            📜 production-2-cluster.yaml
-<           📜 argo-cd.yaml
-<           📜 wombat.yaml
-<           📜 emu.yaml
-<           📜 kangaroo.yaml
-<           📜 platypus.yaml
-        📁 wildlife
-          📁 bitnami.com.SealedSecret
-            📄 emu-omelet.yaml
-            📄 kangaroo-pocket.yaml
-<         📁 networking.k8s.io.Ingresses
-<           📄 wombat.yaml
-<           📄 emu.yaml
-<           📄 kangaroo.yaml
-<           📄 platypus.yaml
-```
-
-If some configuration must be supplied to the deployment charts, values files can be referenced from each cluster, and merged at deploy-time uses the Argo Apps ability to declare mustiple sources. The Argo Apps may be declared in a common chart, rather that from raw YAML manifests, to allow for configuration to be provided. I will focus on Production 2, but Production 1 is the same.
-
-```diff
-  Clusters
-    🦊 Production Common
-      📁 charts
- ┌────► 📦 applications
- │        📁 templates
- │          📜 argo-cd.yaml
- │          📜 wombat.yaml
- │          📜 emu.yaml
- │          📜 kangaroo.yaml
- │          📜 platypus.yaml
- │            | spec:
- │            |   sources:
- │            |     - repoURL: https://example.com/helm ◄── 1️⃣
- │            |       chart: platypus
- │            |       targetRevision: 1.2.3
- │            |       helm:
- │            |         valueFiles:
- │            |           - $values/platypus.yaml
- │            |     - ref: values
- │            |       repoURL: https://example.com/git/clusters/{{ $.Values.valuesFilesRepo }}.git ◄── 2️⃣
-┌│─────────── |       path: values
-││            |       targetRevision: main
-││        📄 Chart.yaml
-││┌─► 📁 namespaces
-│││     📁 wildlife
-│││       📁 networking.k8s.io.Ingresses
-│││         📄 wombat.yaml
-│││         📄 emu.yaml
-│││         📄 kangaroo.yaml
-│││         📄 platypus.yaml
-│││ 🦊 Production 1
-│││ 🦊 Production 2
-│││   📁 namespaces
-│││   ▲ 📁 argo-cd
-│││   │   📁 argoproj.io.Applications
-│││   │     📜 production-2-cluster.yaml
-│││   │       | spec:
-│││   │       |   sources:
-│││   │       |     - repoURL: https://example.com/git/clusters/production-2.git ◄── 3️⃣
-│││   └────── |       path: namespaces
-│││           |       targetRevision: main
-│││           |     - repoURL: https://example.com/git/clusters/production-common.git ◄── 4️⃣
-││└────────── |       path: namespaces
-││            |       targetRevision: main
-││            |     - repoURL: https://example.com/git/clusters/production-common.git ◄── 5️⃣
-│└─────────── |       path: charts/applications
-│             |       targetRevision: main
-│             |       helm:
-│             |         valuesObject:
-│             |           valuesFilesRepo: production-2
-│       📁 wildlife
-│         📁 bitnami.com.SealedSecret
-│           📄 emu-omelet.yaml
-│           📄 kangaroo-pocket.yaml
-└───► 📁 values
-        📄 platypus.yaml
-```
-
-Things to consider:
-
-1. The Production Common repository doesn't contain the raw manifests of the Argo Apps for each application to deploy, but rather a chart that deploys Argo Apps. The applications reference the versioned helm chart as a source, as usual.
-
-2. Not forgetting that these Argo Application resources are not raw YAML manifests anymore, they are now templated, the templating syntax can be used to inject the name of the repository that will provide the values files for the application chart.
-
-3. The App of Apps in each production cluster references the raw resources from the current repository, here, this will deploy the secrets. As usual.
-
-4. The App of Apps in each production cluster also references the raw resources from the Production Common repository, here, this will deploy the ingresses. As usual.
-
-5. Finally, the App of Apps in each production cluster references the applications chart from the Production Common repo, and provides configuration values. Doing so will reference the production cluster repo as the source for values files for the applications deployed in this cluster.
-
-
-
 
 
 <!--
 todo
-  spelling
   phrasing consolidation, esp. with glossary
   links!
+  spelling
   more sections
     Dev
       no local because 👿 VPN blocks `docker pull`
