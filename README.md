@@ -8,7 +8,7 @@ This document is licensed under [CC BY-NC-SA 4.0](http://creativecommons.org/lic
 
 ## Applications
 
-To start with, I will make up applications: Wombat, Emu, Kangaroo and Platypus. All of them are imaginary, and I imagine them as webapps, that is: programs that spend their lives listening to a network socket for connections, and responding to HTTP(S) requests by HTTP(S) responses.
+To start with, I will make up applications: Wombat, Emu, Kangaroo and Platypus. All of them are imaginary, and I imagine them as webapps, that is: programs that spend their lives listening to a network socket for connections and responding to HTTP(S) requests by HTTP(S) responses.
 
 For each application, I will create one application Git repository, [I will expand on mono-repos later on](#containers-and-charts-mono-repos). Each application repo contains the source code of the application, a [Dockerfile](https://docs.docker.com/engine/reference/builder/) for building container images, a [Helm chart](https://helm.sh/) to deploy the application [on the Kubernetes clusters I will make up later](#clusters), and a Jenkinsfile for automation. All applications here are the same, I will show the folder tree for just one application repo in order to keep things shorter.
 
@@ -36,23 +36,23 @@ Applications
 
 Things to consider:
 
-1. Which language(s), librariy(es) and framework(s) you use for developping the applications don't matter at all. The containerization and deployment will differ from one tech stack to another, by that I mean the base image will surely differ, each framework will have expectations regarding the location of the its config files on the file system and environment variables, and will have different capabilities for hot-reloading the configuration without restarting if needs be.
+1. Which language(s), library(ies) and framework(s) you use for developing the applications don't matter at all. The containerization and deployment will differ from one tech stack to another, by that I mean the base image will surely differ, each framework will have expectations regarding the location of its config files on the file system and environment variables, and will have different capabilities for hot-reloading the configuration without restarting if needs be.
 
 2. Which tool(s) you use to build your container images, be it [Docker](https://docs.docker.com/get-started/overview/), [Podman](https://docs.podman.io/en/latest/), [NerdCTL](https://github.com/containerd/nerdctl), [Kaniko](https://github.com/GoogleContainerTools/kaniko) or anything else, don't matter much either.
 
 3. [Helm VS Kustomize](https://www.youtube.com/watch?v=ZMFYSm0ldQ0&themeRefresh=1)? Here it goes again: this matters as much as a bar fight matters to the world.
 
-   * Raw YAML has the benefit of being the simplest, but will lack refactoring capabilities that go beyond [YAML](https://www.educative.io/blog/advanced-yaml-syntax-cheatsheet#anchors) [anchors](https://medium.com/@kinghuang/docker-compose-anchors-aliases-extensions-a1e4105d70bd). If your copy-pasting activities are taking an ever larger part of your time table, you should consider upgrading. One red flag that signals the limit of raw YAML is having one big YAML file for all the resources, and abusing YAML anchors to prevent repetitions. Another potential red flag is using a separate tool to statically generate the YAML.
+   * Raw YAML has the benefit of being the simplest, but will lack refactoring capabilities that go beyond [YAML](https://www.educative.io/blog/advanced-yaml-syntax-cheatsheet#anchors) [anchors](https://medium.com/@kinghuang/docker-compose-anchors-aliases-extensions-a1e4105d70bd). If your copy-pasting activities are taking up an ever-larger part of your timetable, you should consider upgrading. One red flag that signals the limit of raw YAML is having one big YAML file for all the resources, and abusing YAML anchors to prevent repetitions. Another potential red flag is using a separate tool to statically generate the YAML.
 
    * [Kustomize](https://kubectl.docs.kubernetes.io/guides/introduction/kustomize/) works by defining base Kubernetes resources on one side, and overlays for those same resources on the other side. At deploy-time, the overlays form layers that are merged into each other in the configured order. [Kustomize works well for this use case](https://www.densify.com/kubernetes-tools/kustomize/), but lacks the ability to loop over a given list and generate N resources from configuration, or is quite verbose when it comes these advanced modifications. I haven't used it much.
 
-   * [Helm is a template engine](https://helm.sh/docs/chart_template_guide/data_types/). It's like PHP, old PHP without OOP, and you have to open and close the tags on each line, and the indentation of the output matters. On top of that, the user-defined functions, called [Named Templates or Partials](https://helm.sh/docs/chart_template_guide/named_templates/), take only one argument and [can only return strings](https://itnext.io/use-named-templates-like-functions-in-helm-charts-641fbcec38da#67d1). As a software developer by training, the template engine nature of Helm feels the most natural to me, despite the flaws I just highlighted. The pros and cons of Helm and Kustomize almost perfectly mirror. Helm lacks the overlaying bit of Kustomize: it is impossible to modify a resource once it's been output from a template file. The solution is to make your template ultra flexile, and anticipate by having as many configurable blanks to fill, which leads to the well known [template soup](https://news.ycombinator.com/item?id=32624138#:~:text=Without%20you%20adding%20dozens%20of%20lines%20of%20values.yaml%20and%20golang%20template%20soup%20to%20a%20helm%20chart%20to%20allow%20every%20possible%20configuration%20a%20user%20might%20want%20(and%20never%20quite%20the%20same%20way%20in%20two%20different%20helm%20charts%20from%202%20different%20people).) red flag. A Helm chart is only as powerful as its templates are flexible.
+   * [Helm is a template engine](https://helm.sh/docs/chart_template_guide/data_types/). It's like PHP, old PHP without OOP, and you have to open and close the tags on each line, and the indentation of the output matters. On top of that, the user-defined functions, called [Named Templates or Partials](https://helm.sh/docs/chart_template_guide/named_templates/), take only one argument and [can only return strings](https://itnext.io/use-named-templates-like-functions-in-helm-charts-641fbcec38da#67d1). As a software developer by training, the template engine nature of Helm feels the most natural to me, despite the flaws I just highlighted. The pros and cons of Helm and Kustomize almost perfectly mirror. Helm lacks the overlaying bit of Kustomize: it is impossible to modify a resource once it's been output from a template file. The solution is to make your template ultra flexile, and anticipate by having as many configurable blanks to fill, which leads to the well-known [template soup](https://news.ycombinator.com/item?id=32624138#:~:text=Without%20you%20adding%20dozens%20of%20lines%20of%20values.yaml%20and%20golang%20template%20soup%20to%20a%20helm%20chart%20to%20allow%20every%20possible%20configuration%20a%20user%20might%20want%20(and%20never%20quite%20the%20same%20way%20in%20two%20different%20helm%20charts%20from%202%20different%20people).) red flag. A Helm chart is only as powerful as its templates are flexible.
 
-     In the rest of this document, I will be using Helm, as this is the tool I master best.
+     In the rest of this document, I will be using Helm, as this is the tool I master the best.
 
-   * [Carvel ytt](https://www.youtube.com/watch?v=DLnXkH2keNg), [kpt](https://www.youtube.com/watch?v=Wavigyq7NdQ), [Timoni, CUE](https://www.youtube.com/watch?v=bbE1BFCs548)... At this point, I would advise throwing a fully fledged programming language at the problem and making your own tool. Use [Typescript](https://www.typescriptlang.org/docs/handbook/typescript-from-scratch.html) with [Bun](https://bun.sh/docs), get built-in support from VS Code, containerize it into an [Argo CD Content Management Plugin](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/config-management-plugins/), use JS Modules and `export function` to return the Kubernetes resources as objects, gather them into an array, use `for` loops to mimic the feature of Kustomize to overlay the non-configurable values, serialize to JSON or YAML.
+   * [Carvel ytt](https://www.youtube.com/watch?v=DLnXkH2keNg), [kpt](https://www.youtube.com/watch?v=Wavigyq7NdQ), [Timoni, CUE](https://www.youtube.com/watch?v=bbE1BFCs548)... At this point, I would advise throwing a fully-fledged programming language at the problem and making your own tool. Use [Typescript](https://www.typescriptlang.org/docs/handbook/typescript-from-scratch.html) with [Bun](https://bun.sh/docs), get built-in support from VS Code, containerize it into an [Argo CD Content Management Plugin](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/config-management-plugins/), use JS Modules and `export function` to return the Kubernetes resources as objects, gather them into an array, use `for` loops to mimic the feature of Kustomize to overlay the non-configurable values, serialize to JSON or YAML.
 
-   The really important takeaway here is that the chart only has the default `values.yaml` file. It does not define more values files for each cluster or each environment the application will be deployed to. The application Helm chart remains unaware of its deployment sites, values files will be provided by a different source.
+   The crucial takeaway here is that the chart only has the default `values.yaml` file. It does not define more values files for each cluster or each environment the application will be deployed to. The application Helm chart remains unaware of its deployment sites, values files will be provided by a different source.
 
 4. [Argo Workflows](https://argoproj.github.io/argo-workflows/), [Azure DevOps Pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines/get-started/what-is-azure-pipelines?view=azure-devops), [Jenkins](https://www.jenkins.io/doc/) or any other pipeline executor(s) that can be triggered on push to a Git or artifact will do, it doesn't matter.
 
@@ -101,7 +101,7 @@ Clusters
 
 Things to consider:
 
-1. Which GitOps agent you install doesn't matter. [OCP ACM](https://www.redhat.com/en/technologies/management/advanced-cluster-management), [Argo CD](https://argo-cd.readthedocs.io/en/stable/) and [Flux CD](https://fluxcd.io/flux/) all seem to be well established industry standards. Any tool that works on a Kubernetes custom resource to determine what version of an application chart to deploy in what cluster will do.
+1. Which GitOps agent you choose to install doesn't matter. [OCP ACM](https://www.redhat.com/en/technologies/management/advanced-cluster-management), [Argo CD](https://argo-cd.readthedocs.io/en/stable/) and [Flux CD](https://fluxcd.io/flux/) all seem to be well established industry standards. Any tool that works on a Kubernetes custom resource to determine what version of an application chart to deploy in what cluster will do.
 
    In this document, I will be using Argo CD, as I have the most experience with it.
 
@@ -135,7 +135,7 @@ To bootstrap such a cluster, you would first install an Argo CD instance on it, 
 
 ## Deploying
 
-In this section, I will detail the process of making changes, from the source code of the application, containerfile, deployment chart or configuration, to actual deployment in a cluster. I will consider that a change starts from pushing a commit to the `main` branch of an application Git repository, I will explore [more sophisticated branching models later](#branching-models).
+In this section, I will detail the process of making changes, from the source code of the application, containerfile, deployment chart or configuration, to actual deployment in a cluster. I will consider that a change starts from pushing a commit to the `main` branch of an application Git repository, I will explore [more sophisticated branching models later on](#branching-models).
 
 1. When changing the source code of the application, containerfile or Helm chart, whichever Jenkins, ADO or any other pipeline executor is triggered by the push of new commit(s) to the `main` branch. The pipeline rebuilds not only the application artifact(s), but also the container image(s) and the chart(s)! Alternatively, if building the application binaries or the container image is particularly long, the pipeline can compute whether or not these components have changed, and reuse existing artifacts or images appropriately, but making the pipeline more intelligent may come at the cost of increasing its complexity.
 
@@ -165,7 +165,7 @@ Promoting a new version of an application (chart) to the Staging and Production 
 
 The strict versioning of everything was worth it: promoting a new version of an application (chart) from cluster to cluster is just about updating a version number!
 
-It is worth to consider that promotion doesn't apply to the application artifact(s), nor to the container image(s), these would be red flags, but rather to the entire Helm chart. The rationale behind this revolves around expectation fulfilment: the containerized application has expectations regarding its file system, environment variables, and access to external webservices. The chart packages Kubernetes resources that transform these expectations into volumes, services, and blanks in the templates to be filled by volume mounts and other ad-hoc values provided by the specific configuration for each cluster. I don't want to be the person fulfilling the new expectations of a new container image by using the old resources of an old chart.
+It is worth considering that promotion doesn't apply to the application artifact(s), nor to the container image(s), these would be red flags, but rather to the entire Helm chart. The rationale behind this revolves around expectation fulfilment: the containerized application has expectations regarding its file system, environment variables, and access to external webservices. The chart packages Kubernetes resources that transform these expectations into volumes, services, and blanks in the templates to be filled by volume mounts and other ad-hoc values provided by the specific configuration for each cluster. I don't want to be the person fulfilling the new expectations of a new container image by using the old resources of an old chart.
 
 
 
@@ -173,11 +173,11 @@ It is worth to consider that promotion doesn't apply to the application artifact
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-In this section, I will list a couple a terms that I think might bring confusion. Application, repository and cluster are perfect example of such polysemous vocabulary. The objective is certainly far from even the start of a comprehensive [ubiquitous language](https://en.wikipedia.org/wiki/Domain-driven_design#Overview), rather, this glossary is for everyone to understand each other, it associates specific words to specific meanings, and aims at preventing misunderstandings and periphrases. I will do my best to use these terms consistently in the rest of this document.
+In this section, I will list a couple of terms that I think might bring confusion. Application, repository and cluster are perfect examples of such polysemous vocabulary. The objective is certainly far from even the start of a comprehensive [ubiquitous language](https://en.wikipedia.org/wiki/Domain-driven_design#Overview), rather, this glossary is for everyone to understand each other, it associates specific words to specific meanings, and aims at preventing misunderstandings and periphrases. I will do my best to use these terms consistently in the rest of this document.
 
-TL;DR: don't confuse the application, its Helm chart, and the Argo app.
+TL; DR: don't confuse the application, its Helm chart, and the Argo app.
 
-* In this document, an `App[lication]` is an HTTP webserver: it listens the HTTP(S) requests and spends its live responding to them.
+* In this document, an `App[lication]` is an HTTP webserver: it listens to the HTTP(S) requests and spends its live responding to them.
 
 * Applications are defined by their `App[lication] [Source] Code`, written in any programming language, using any libraries and frameworks.
 
@@ -195,7 +195,7 @@ TL;DR: don't confuse the application, its Helm chart, and the Argo app.
 
 * An `[App[lication]] {Deployment Package|[Deployment] [Helm] Chart}` contains, or can be used to generate, all the Kubernetes resources necessary to deploy a containerized application in a Kubernetes cluster.
 
-* An `Umbrella [Helm] Chart` is a hollow shell merely referencing other application Helm charts. Such a meta-package helps keeping specific versions of other application charts together.
+* An `Umbrella [Helm] Chart` is a hollow shell merely referencing other application Helm charts. Such a meta-package helps keep specific versions of other application charts together.
 
 * A `Packaged [Helm] Chart` is the product of packaging the templates and metadata of a Helm chart into a portable `*.tgz` archive.
 
@@ -214,11 +214,11 @@ Kubernetes cluster it's running in. This custom resource has one job: define wha
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-As glorious as it look, the deployment model I have presented relies heavily on the strict [versioning](https://en.wikipedia.org/wiki/Software_versioning#Schemes) of the application code, container images, and Helm charts. Humans are not disciplined, this raises multiple problems, which in turn have easier or harder solutions:
+As glorious as it looks, the deployment model I have presented relies heavily on the strict [versioning](https://en.wikipedia.org/wiki/Software_versioning#Schemes) of the application code, container images, and Helm charts. Humans are not disciplined, this raises multiple problems, which in turn have easier or harder solutions:
 
 * It's easy to shoot yourself in the foot, and forget to update the version number of this or that component.
 * Where to define the version of each component in the first place?
-* Which entity is responsible for incementing and cascading the versions?
+* Which entity is responsible for incrementing and cascading the versions?
 * When are the versions updated?
 
 Essentially, these boil down to 3 questions: about where, when, and who.
@@ -227,19 +227,19 @@ Essentially, these boil down to 3 questions: about where, when, and who.
 
 ### Who
 
-If humans are put in charge of incementing and cascading the version numbers, they might forget to do so, leading to multiple container images or Helm charts having the same version.
+If humans are put in charge of incrementing and cascading the version numbers, they might forget to do so, leading to multiple container images or Helm charts having the same version.
 
 If the pipeline is in charge, it will probably end up [inspecting the commit messages](https://medium.com/agoda-engineering/automating-versioning-and-releases-using-semantic-release-6ed355ede742) to compute which version numbers must be updated, and the appropriate way to increment them... The same commit messages that were poorly written by humans, leading to artifacts being pushed with misleading version numbers.
 
 One possible safeguard against this is to configure your artifact repositories to strictly deny pushing the same artifact with the same version number. The pipeline will fail fast with a lot of pixels turning red on your screen, but at least the honor of the versioning scheme will be safe.
 
-Another safeguard is having the build pipeline, or commit hooks, check for version updates. This way, the pipeline will straight up refuse to build or push anything if it doesn't detect a version update since thte last release, red pixels everywhere, but again, it's for the best.
+Another safeguard is having the build pipeline, or commit hooks, check for version updates. This way, the pipeline will straight up refuse to build or push anything if it doesn't detect a version update since the last release, red pixels everywhere, but again, it's for the best.
 
 
 
 ### Where
 
-While actually building, the application build pipeline needs to know where to look for the version numbers of the application binary, container image and Helm chart.
+While building, the application build pipeline needs to know where to look for the version numbers of the application binary, container image and Helm chart.
 
 Setting aside the moment and means for incrementing these versions:
 
@@ -275,7 +275,7 @@ The Argo apps are all stored and versioned in the cluster repositories, each of 
         📜 *.yaml
 ```
 
-The Argo apps, like any respectable Kubernetes resource, has a `.status` field that can be monitored normally. The creation of a live dashboard crossing the applications and the clusters, with versions and statuses, is clearly out of the scope of this document...
+The Argo app, like any respectable Kubernetes resource, has a `.status` field that can be monitored normally. The creation of a live dashboard crossing the applications and the clusters, with versions and statuses, is clearly out of the scope of this document...
 
 
 
@@ -285,7 +285,7 @@ The Argo apps, like any respectable Kubernetes resource, has a `.status` field t
 
 Deploying applications only signs you in for the rest of their maintenance and operation lifecycle. Monitoring and alerting are out of scope for this document, which focuses solely on the deployment path. However, with correct monitoring, you will be able to trace the appearance of problems to a point in time and space, space being a cluster in this case, and use the versioning capabilities of Git to get which Argo apps or configurations were updated just prior.
 
-Having strict and consistent versioning is crusial to make the experience less unpleasant. Separating each cluster in its own repository limits the flood of Git commits to analyse.
+Having strict and consistent versioning is crucial to make the experience less unpleasant. Separating each cluster in its own repository limits the flood of Git commits to analyze.
 
 
 
@@ -293,7 +293,7 @@ Having strict and consistent versioning is crusial to make the experience less u
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-On the Inernets, it has become quite usual to see Helm charts for a given application containing not only the default `values.yaml` files, but also a plethora of values files for each of the clusters the application is to be deployed to. To me, this violates the principle according to which an application Helm chart is an environment-agnostic deliverable that could be used to deploy the application anywhere. This is why I haven't created any other values files in the applications repositories.
+On the Internets, it has become quite usual to see Helm charts for a given application containing not only the default `values.yaml` files, but also a plethora of values files for each of the clusters the application is to be deployed to. To me, this violates the principle according to which an application Helm chart is an environment-agnostic deliverable that could be used to deploy the application anywhere. This is why I haven't created any other values files in the applications repositories.
 
 Instead, the values for each chart deployment should be provided at deploy-time, and therefore declared as close as possible to the other deployment resources. This makes the Argo apps the perfect place for the job. The simplest option is for them to supply values from their `.spec.source.helm.valuesObject`, which acts as an inline values file. This works well enough for what would be small-size values files. Alternatively, Argo apps can reference separate values files from their `.spec.sources[*].helm.valueFiles`. They can [reference multiple sources](https://argo-cd.readthedocs.io/en/release-2.9/user-guide/multiple_sources/#helm-value-files-from-external-git-repository) and supply a versioned chart from a Helm repository, a first source, with values files from their own cluster repository, a second source.
 
@@ -330,15 +330,15 @@ Instead, the values for each chart deployment should be provided at deploy-time,
 
 Whether because you lack involvement from the app developers or because you are deploying applications that are made by others, you will sometimes not have access to the source code of the applications you are deploying, nor to their build pipelines. In both cases, you will have to consider them as external applications and treat them appropriately.
 
-An application can be external at different levels, depending on which deliverables are made pubicly available.
+An application can be external at different levels, depending on which deliverables are made publicly available.
 
 * If the developers publish the binaries for their application, your own build pipeline will have to be triggered by some kind of webhook or other event that happens whenever new versions of the artifacts are pushed to an external repository. From there, the pipeline can build the container image and the Helm chart normally.
 
-* If the developers publish container images, your pipleline can be triggered by the events fired by an external container registry, and package the Helm chart normally. If you don't like the stock container image, you can make your own image by using the stock image as a [base](https://docs.docker.com/engine/reference/builder/#from). In this case, a pipeline can update the version of the base image, or a human can consciously do it.
+* If the developers publish container images, your pipeline can be triggered by the events fired by an external container registry, and package the Helm chart normally. If you don't like the stock container image, you can make your own image by using the stock image as a [base](https://docs.docker.com/engine/reference/builder/#from). In this case, a pipeline can update the version of the base image, or a human can consciously do it.
 
 * If the developers publish a Helm chart, you can point an Argo app to their external Helm repository directly, which is what I have been doing for Argo CD itself, or extend the stock chart by wrapping it with an umbrella chart. Similar to the container image, either an automated pipeline or a human can update the version of the dependency chart.
 
-Using both the stock container image as a base and the stock chart as a dependencies, you can end up with two pairs of contaimer image & Helm chart for one application.
+Using both the stock container image as a base and the stock chart as a dependency, you can end up with two pairs of container image & Helm chart for one application.
 
 ```mermaid
 flowchart LR
@@ -355,9 +355,9 @@ flowchart LR
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-Up until now, my imaginary applications have consisted in a single HTTP API each. In this section I will explore splitting the Platypus application into 3 webservices: Duck, Bear and Beaver. This is far from some interconnected krakens seen in the wild, but good enough for the example.
+Up until now, my imaginary applications have consisted of a single HTTP API each. In this section I will explore splitting the Platypus application into 3 webservices: Duck, Bear and Beaver. This is far from some interconnected krakens seen in the wild, but good enough for the example.
 
-The easiest option for separating the sub-components is to keep splitting the application repo into source, containers and charts first, then splits again into each component. This leaves one Helm chart that will generate the Kubernetes resources for the all the sub-components.
+The easiest option for separating the sub-components is to keep splitting the application repo into source, containers and charts first, then split again into each component. This leaves one Helm chart that will generate the Kubernetes resources for all the sub-components.
 
 ```plaintext
 🦊 Platypus
@@ -389,7 +389,7 @@ The easiest option for separating the sub-components is to keep splitting the ap
   🔧 Jenkinsfile
 ```
 
-The major issue of this setup is that there are now 3 sub-components for a single pipeline, which must now build 3 applications, 3 container images, and 1 Helm chart. This means building all sub-components everytime, or increase the complexity of the pipeline to differentiate the sub-components that have been changed from those that can be reused from previous releases. There is only one Helm chart, which makes for a single `Chart.yaml` file with a single `.appVersion` field, and the Cornelian choice of which version to pick, unless the sub-components share the same version number. Having the same version for all the sub-components and systematically building them together makes the most sense here, especially if they are supposed to be tightly coupled.
+The major issue of this setup is that there are now 3 sub-components for a single pipeline, which must now build 3 applications, 3 container images, and 1 Helm chart. This means building all sub-components every time, or increase the complexity of the pipeline to differentiate the sub-components that have been changed from those that can be reused from previous releases. There is only one Helm chart, which makes for a single `Chart.yaml` file with a single `.appVersion` field, and the Cornelian choice of which version to pick, unless the sub-components share the same version number. Having the same version for all the sub-components and systematically building them together makes the most sense here, especially if they are supposed to be tightly coupled.
 
 The next evolution is to split the Helm chart into 4: one for each sub-component, and one umbrella chart referencing the sub-components using the Helm dependency mechanism. Alternatively, the component charts can be put directly in `Charts/platypus/charts`.
 
@@ -420,7 +420,7 @@ The next evolution is to split the Helm chart into 4: one for each sub-component
 
 Only packaging the umbrella chart is necessary: the dependency charts will be inlined in the `charts` sub-folder inside the `*.tgz` archive.
 
-The final form of the split puts each sub-component in its own application repository, each containing its own source code, containerfile, Helm chart and build pipeline, functioning independently. The Platypus application repository now doesn't hold any source code nor containerfile anymore, and consists solely of an umbrella chart and the pipeline to package it, triggered by the push of  new version of one of its dependencies to the Helm repository.
+The final form of the split puts each sub-component in its own application repository, each containing its own source code, containerfile, Helm chart and build pipeline, functioning independently. The Platypus application repository now doesn't hold any source code nor containerfile anymore, and consists solely of an umbrella chart and the pipeline to package it, triggered by the push of new version of one of its dependencies to the Helm repository.
 
 ```plaintext
 🦊 Duck
@@ -446,7 +446,7 @@ The final form of the split puts each sub-component in its own application repos
     🔧 Jenkinsfile
 ```
 
-This is the best setup for applications with sub-components developped independently against different release cycles. The umbrella chart barely synchronizes the versionsof all components.
+This is the best setup for applications with sub-components developed independently against different release cycles. The umbrella chart barely synchronizes the versions of all components.
 
 
 
@@ -466,9 +466,9 @@ Adding more applications to the base infrastructure consists in adding a new app
 
 In this section, I will add another production cluster for redundancy. I will explore some techniques that can be used to reduce repetition across the two clusters. I will skip the simplest scenario consisting of two perfectly identical clusters, in which case the same cluster repo can be used as a source of truth for both of them.
 
-At the extreme opposite, the two production clusters would have all their configuration duplicated. Each cluster repo would be independent, this means a lot of duplication to define the Argo apps and the other Kubernetes resources, and more maintenance effort to synchronize the versions and the configuration in both clusters. Having two indenpendent clusters can allow for a two-phase release of new application (chart) versions, where one cluster is being upgraded while the other is taken out of the load balancing system. While this solution can bring some feeling of safety, it looks like nothing but a poor parody, and may only slow you down in the adoption of any proper rollout strategy brought by Kubernetes Deployments or Argo Rollouts.
+On the extreme opposite, the two production clusters would have all their configuration duplicated. Each cluster repo would be independent, this means a lot of duplication to define the Argo apps and the other Kubernetes resources, and more maintenance effort to synchronize the versions and the configuration in both clusters. Having two independent clusters can allow for a two-phase release of new application (chart) versions, where one cluster is being upgraded while the other is taken out of the load balancing system. While this solution can bring some feeling of safety, it looks like nothing but a poor parody, and may only slow you down in the adoption of any proper rollout strategy brought by Kubernetes Deployments or Argo Rollouts.
 
-Solutions sitting in the middle will involve using a common cluster repository to hold the common Argo apps and other resources. Below, I will take an example using Argo apps and ingresses common to both clusters, but secrets imagined to have different values for each cluster. The two clusters will be soberly named Production 1 and Production 2, their respective cluster Git repos contain only the secrets, and each of their `production-*-cluster.yaml` app of apps uses multiple sources to reference not only their own cluster repo, but also the new Production Common repo. Production Common is a Git repository that contains all the common resources: the Argo apps, except the app of apps for each cluster, and the ingresses. Values for the charts referenced by the common Argo apps are imagined common, I will come back to them shortly. The cluster repos for Production 1 and Production 2 are the same, I will only show one for brievety.
+Solutions sitting in the middle will involve using a common cluster repository to hold the common Argo apps and other resources. Below, I will take an example using Argo apps and ingresses common to both clusters, but secrets imagined having different values for each cluster. The two clusters will be soberly named Production 1 and Production 2, their respective cluster Git repos contain only the secrets, and each of their `production-*-cluster.yaml` app of apps uses multiple sources to reference not only their own cluster repo, but also the new Production Common repo. Production Common is a Git repository that contains all the common resources: the Argo apps, except the app of apps for each cluster, and the ingresses. Values for the charts referenced by the common Argo apps are imagined common, I will come back to them shortly. The cluster repos for Production 1 and Production 2 are the same, I will only show one for brevity.
 
 ```diff
   Clusters
@@ -517,7 +517,7 @@ Solutions sitting in the middle will involve using a common cluster repository t
 <           📄 platypus.yaml
 ```
 
-If some cluster-specific values must be supplied to the common appliction Helm charts, the values files can be stored in the respective cluster repos. In the common repository, the Argo apps can be declared in a Git-hosted Helm chart, rather that from raw YAML manifests, to allow for their configuration to be templated. Their ability to declare multiple sources can be used to reference an versioned application Helm chart in a Helm repository, and a values file left to be templated.
+If some cluster-specific values must be supplied to the common application Helm charts, the values files can be stored in the respective cluster repos. In the common repository, the Argo apps can be declared in a Git-hosted Helm chart, rather than from raw YAML manifests, to allow for their configuration to be templated. Their ability to declare multiple sources can be used to reference a versioned application Helm chart in a Helm repository, and a values file left to be templated.
 
 ```diff
   Clusters
@@ -580,9 +580,9 @@ Things to consider:
 
 3. The App of apps in each production cluster repo references the raw resources from its own cluster repository, as usual. In this imaginary scenario, this will deploy the cluster-specific secrets.
 
-4. The App of apps in each production cluster repo also references the raw resources from the Production Common repository, as before.In this example, this will deploy the common ingresses.
+4. The App of apps in each production cluster repo also references the raw resources from the Production Common repository, as before. In this example, this will deploy the common ingresses.
 
-5. Finally, the App of apps in each production cluster references the Git-hoster Helm chart, which generates the other Argo apps, from the Production Common repo, and provides configuration values to indicate its own repository as the source for the application chart values files. Doing so will reference the production cluster repo as the source for values files for the applications deployed in this cluster.
+5. Finally, the App of apps in each production cluster references the Git-hosted Helm chart, which generates the other Argo apps, from the Production Common repo, and provides configuration values to indicate its own repository as the source for the application chart values files. Doing so will reference the production cluster repo as the source for values files for the applications deployed in this cluster.
 
 You can reach various levels of templating depending how much of your common resources you put in the common Helm chart, and how much you declare as raw YAML.
 
@@ -651,7 +651,7 @@ gitGraph
 
 When to build releases?
 
-* A first option would be to have the application build pipeline release new versions of the binaries,container image(s) and Helm chart(s) for each push to the `main` branch.
+* A first option would be to have the application build pipeline release new versions of the binaries, container image(s) and Helm chart(s) for each push to the `main` branch.
 
   ```mermaid
   %%{
@@ -700,9 +700,9 @@ When to build releases?
     commit
   ```
 
-  This means that some effort must be made to keep the state of the `main` branch as stabe as possible, because whatever is in `main` is considered as potentially deployable to production. If the `main` branch doesn't systematically produce stable deliverables, the pressure is passed onto the pipeline, which has the heavy responsibility to fail fast and abort the release.
+  This means that some effort must be made to keep the state of the `main` branch as stable as possible, because whatever is in `main` is considered as potentially deployable to production. If the `main` branch doesn't systematically produce stable deliverables, the pressure is passed onto the pipeline, which has the heavy responsibility to fail fast and abort the release.
 
-  To mitigate this while still considering the `main` branch as the sole source of publication, changes, which are already buffered on `feature/*` branches, can be buffered again on a `dev` branch before their final merge to `main`. In addition, merging to `dev` can trigger the build of preview or snapshot releases that can have a different lifecycle that production-ready releases.
+  To mitigate this while still considering the `main` branch as the sole source of publication, changes, which are already buffered on `feature/*` branches, can be buffered again on a `dev` branch before their final merge to `main`. In addition, merging to `dev` can trigger the build of preview or snapshot releases that can have a different lifecycle than production-ready releases.
 
   ```mermaid
   %%{
@@ -809,7 +809,7 @@ When to build releases?
     commit
   ```
 
-* Yet another option is to release for each commit pushed to any `release/*` branch. Unlike the `feature/*` branches, which are temporary and destined to be merged, these `release/*` branches live forever, they are never merged back. This model is especially useful when supporting multiple versions of the same application in parallel, at destination of different customers.
+* Yet another option is to release for each commit pushed to any `release/*` branch. Unlike the `feature/*` branches, which are temporary and destined to be merged, these `release/*` branches live forever, they are never merged back. This model is especially useful when supporting multiple versions of the same application in parallel, for different customers.
 
   ```mermaid
   %%{
@@ -883,7 +883,7 @@ When to build releases?
     commit
   ```
 
-* Finally, there is the options of complexifying even things even more by releasing only on tagged commit pushed to any `release/*` branch... I think you get the picture...
+* Finally, there is the option of complexifying even things even more by releasing only on tagged commit pushed to any `release/*` branch... I think you get the picture...
 
 The branching model for the application repository encompasses the source code, but also the containerfile and the chart code, as those three deliverables are tightly coupled. I will leave the headache of choosing which of the application artifact, container image or Helm chart should give its version number to the release tags and branches to the reader as an exercise.
 
@@ -907,7 +907,7 @@ gitGraph
   commit
 ```
 
-At this point, you may make a change in the Rolling or Staging cluster and think you will need the same or a similar change in the Production cluster as well... But not now... But you will forget it if you delay the change... This situation calls for `release/*` branches. Don't be fooled by the naming: the `release/*` branches of the cluster repositories have nothing to do with the `release/*` branches of the application repositories. In fact, they are more alike their `feature/*` branches, in that they are here to buffer changes before getting merged to the `main` branch.
+At this point, you may make a change in the Rolling or Staging cluster and think you will need the same or a similar change in the Production cluster as well... But not now... But you will forget it if you delay the change... This situation calls for `release/*` branches. Don't be fooled by the naming: the `release/*` branches of the cluster repositories have nothing to do with the `release/*` branches of the application repositories. In fact, they are more like their `feature/*` branches, in that they are here to buffer changes before getting merged to the `main` branch.
 
 ```mermaid
 %%{
@@ -973,9 +973,9 @@ The base structure presented in this document is agnostic to changes freezes, an
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-I have made the assumption that each cluster would have its own GitOps agent installed inside it, but some teams will prefer to use a separate [management](https://akuity.io/blog/argo-cd-architectures-explained/) [cluster](https://codefresh.io/blog/a-comprehensive-overview-of-argo-cd-architectures-2023/) to host their GitOps agent, and make it deploy to the other, now remote, clusters. This is perfectly acceptable, but it requires moving a few files around. In this section, I will detail the changes to expect.
+So far, I've assumed that each cluster would have its own GitOps agent installed inside it, but some teams will prefer to use a separate [management](https://akuity.io/blog/argo-cd-architectures-explained/) [cluster](https://codefresh.io/blog/a-comprehensive-overview-of-argo-cd-architectures-2023/) to host their GitOps agent, and make it deploy to the other, now remote, clusters. This is perfectly acceptable, but it requires moving a few files around. In this section, I will detail the changes to expect.
 
-I will create a new Management cluster and its corresponding cluster repository, then move all the Argo apps from all cluster repos to Management. The Production, Staging and Rolling cluster repos are the same, I will show ony one to save space.
+I will create a new Management cluster and its corresponding cluster repository, then move all the Argo apps from all cluster repos to Management. The Production, Staging and Rolling cluster repos are the same, I will show only one to save space.
 
 ```diff
 Clusters
@@ -1028,7 +1028,7 @@ Things to consider:
 
    The `.spec.destination.name` field of each Argo app will need to be [updated to target the appropriate cluster](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/declarative-setup/#clusters), otherwise the application charts will be deployed in the Management cluster!
 
-2. There is no point for having the Argo apps defined in each of the remote cluster repos. There is no Argo CD instance there anymore, those resources will just pile up and take dust.
+2. There is no point in having the Argo apps defined in each of the remote cluster repos. There is no Argo CD instance there anymore, those resources will just pile up and take dust.
 
 The benefit of having one Argo CD instance per cluster is that each cluster becomes self-operative, and, most importantly, can be updated independently without the risk of 🍆 up any other cluster of potential higher business value in the process. Argo CD is the GitOps agent, but, through its Argo app definition, is also just another application.
 
@@ -1040,7 +1040,7 @@ The benefit of a single Argo CD instance is having a single counter to manage an
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-Do I need nightly builds? No. The latest changes from the `main` branch of each application repo is already automatically built, and the newly released versions of the deliverables are deployed to the Rolling cluster. I don't need a nightly process to do the exact same thing a second time, this wouldn't bring any benefit.
+Do I need nightly builds? No. The latest changes from the `main` branch of each application repo are already automatically built, and the newly released versions of the deliverables are deployed to the Rolling cluster. I don't need a nightly process to do the exact same thing a second time, this wouldn't bring any benefit.
 
 Unless you make so many changes and release so many stable versions of so many applications that the Rolling cluster changes every 10 seconds, you don't need nightly builds either. Even then, you are still better off finding a proper solution to throttle your application build pipeline runs than having nightly builds.
 
@@ -1158,7 +1158,7 @@ With a mono repo for the clusters, it becomes easier to make changes to the conf
 
 > This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
 
-In this section, I will weigh the pros and cons of merging all the `Containers` and `Charts` sub-folders of the application repositories into their own mono repos. The change to the folder tree and the structure of the Git repositories is quite drastic, as all the containerfiles are moved into a new Containers mono repo, and all the Helm charts are moved into a new Charts mono repo. Each mono repo has its own pipeline to builds the container images and the Helm charts respectively.
+In this section, I will weigh the pros and cons of merging all the `Containers` and `Charts` sub-folders of the application repositories into their own mono repos. The change to the folder tree and the structure of the Git repositories is quite drastic, as all the containerfiles are moved into a new Containers mono repo, and all the Helm charts are moved into a new Charts mono repo. Each mono repo has its own pipeline to build the container images and the Helm charts respectively.
 
 ```plaintext
 🦊 Containers
@@ -1182,16 +1182,16 @@ In this section, I will weigh the pros and cons of merging all the `Containers` 
   🔧 Jenkinsfile
 ```
 
-Splitting the Git repositories by layers instead of by silos makes a big difference to the pipelines. If the pipeline of each application repo was building a single container image and an single chart unconditionally, it is no longer acceptable to rebuild all the images or all the charts on the slightest change. This adds complexity to the new mono pipelines in order to compute which container images and charts have to be rebuilt. Refactoring the pipeline with a loop makes it more rigid, but reduces duplication to the point that it is possible to add more containerfiles and charts at zero pipeline code maintenance cost! This also means that cloning the mono repo on each pipeline run will be slower as new applications pile up.
+Splitting the Git repositories by layers instead of by silos makes a big difference to the pipelines. If the pipeline of each application repo was building a single container image and a single chart unconditionally, it is no longer acceptable to rebuild all the images or all the charts on the slightest change. This adds complexity to the new mono pipelines in order to compute which container images and charts have to be rebuilt. Refactoring the pipeline with a loop makes it more rigid, but reduces duplication to the point that it is possible to add more containerfiles and charts at zero pipeline code maintenance cost! This also means that cloning the mono repo on each pipeline run will be slower as new applications pile up.
 
-Having all containerfiles or Helm charts in a single repository makes it easier to change multiple of them in one go. The branching model is also impacted: you have to catter for the fact that the `feature/*` and `release/*` branches now cover all the containerfiles or charts. In practice, it feels wrong to separate bricks that are so tightly coupled. The majority of changes will span a single chart, or a container image and its deploying chart. You may generally end up making changes to 2 branches in 2 repositories.
+Having all containerfiles or Helm charts in a single repository makes it easier to change multiple of them in one go. The branching model is also impacted: you have to cater for the fact that the `feature/*` and `release/*` branches now cover all the containerfiles or charts. In practice, it feels wrong to separate bricks that are so tightly coupled. The majority of changes will span a single chart, or a container image and its deploying chart. You may generally end up making changes to 2 branches in 2 repositories.
 
-If your main objective is to reduce duplication in the pipeline code, you may want to refactor some funtions in a plugin for your pipeline executor, or extract the process into a separate build pipeline that is triggered by changes to any application repo.
+If your main objective is to reduce duplication in the pipeline code, you may want to refactor some functions in a plugin for your pipeline executor, or extract the process into a separate build pipeline that is triggered by changes to any application repo.
 
 
 <!--
 todo
-  links!
+  links
   spelling
   more sections
     Dev
