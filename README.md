@@ -1,6 +1,6 @@
 # How I Would Deploy Anything On Kubernetes
 
-In this document, I will do my best to set down my shallow and imprecise opinions on the matter of deploying applications in Kubernetes. I will start from scratch, by taking the example of imaginary HTTP webservers, and detail the full structure of the Git repositories and the folder trees inside them. I will make my best to take into account source code, containerization, deployment, branching models, release management, versioning of deliverables, what is deployed where, finding what happened when something breaks, applications with sub-components, applications without sources, mono-repos and how it balances with pipeline complexity, scaling to more clusters, and to more applications.
+In this document, I will do my best to set down my shallow and imprecise opinions on the matter of deploying applications in Kubernetes. The process presented here is certainly not a proper example of GitOps, as it assumes a strong separation between developments and operations. I will start from scratch, by taking the example of imaginary HTTP webservers, and detail the full structure of the Git repositories and the folder trees inside them. I will make my best to take into account source code, containerization, deployment, branching models, release management, versioning of deliverables, what is deployed where, finding what happened when something breaks, applications with sub-components, applications without sources, mono-repos and how it balances with pipeline complexity, scaling to more clusters, and to more applications.
 
 This document is licensed under [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/).
 
@@ -322,7 +322,19 @@ Instead, the values for each chart deployment should be provided at deploy-time,
     📄 emu.yaml
 ```
 
+<!--
 
+## Where Is The Dev Cluster?
+
+> This independent section builds on top of the original structure of Git repositories, folder tree and process presented above. From this base, it details particular points, explores an alternative structure, or incorporates extra constraints.
+
+The structure I presented in this document is devoid of any form of dev environment, but this shouldn't be a discovery that the maintainers of the containerfiles and Helm charts must have a way to try out and debug their changes within a feedback loop kept as short as possible.
+
+[Minikube](https://minikube.sigs.k8s.io/docs/), [Kind](https://kind.sigs.k8s.io/), [Rancher Desktop](https://docs.rancherdesktop.io/) and others are all acceptable Kubernetes distributions to run on a local machine, you should choose the one that behaves the closest to the Kubernetes distribution you use in production. However, having a local Kubernetes cluster isn't always possible, whether because you are equipped with a potato CPU, or because 👿 VPN blocks `docker pull`.
+
+On the remote side, a Development cluster repository would have the same structure as any other cluster, except Argo apps would be absent. Instead, [Argo CD's application sets](https://argo-cd.readthedocs.io/en/release-2.9/operator-manual/applicationset/Generators-Pull-Request/) or equivalent can be used to deploy applications for each `feature/*` branch in the application repos. The Argo apps generated from the application sets would target the Git-hosted charts directly, so that building them isn't required, those would use container images built from the `feature/*` branches manually or automatically.
+
+-->
 
 ## Applications Without Source Code
 
@@ -1191,9 +1203,6 @@ If your main objective is to reduce duplication in the pipeline code, you may wa
 
 <!--
 todo
-  links
   spelling
-  more sections
-    Dev
-      no local because 👿 VPN blocks `docker pull`
+  links
 -->
